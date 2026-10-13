@@ -1,0 +1,16 @@
+# Loại bỏ node_modules ở mọi thư mục
+**/node_modules/
+
+# Loại bỏ file môi trường
+**/.env
+**/.env.*
+
+# Loại bỏ thư mục build
+**/dist/
+
+# Loại bỏ log
+**/npm-debug.log*
+**/logs/
+
+# Loại bỏ ảnh tải lên
+technology-ecommerce-backend/src/uploads/

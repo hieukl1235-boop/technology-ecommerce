@@ -1,0 +1,244 @@
+const OrderModel = require("../../models/Order")
+const OrderController = {
+  async getAllOrders(req, res) {
+    try {
+      const orders = await OrderModel.getAllOrders();
+      return res.status(200).json({
+        success: true,
+        orders: orders,
+      });
+    } catch (error) {
+      console.error("Lỗi lấy danh sách đơn hàng:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi server khi lấy danh sách đơn hàng",
+        error: error.message,
+      });
+    }
+  },
+
+  async updateStatus(req, res) {
+    try {
+      const { orderCode } = req.params;
+      const { newStatus } = req.body;
+      const updatedOrder = await OrderModel.updateOrderStatus(
+        orderCode,
+        newStatus,
+      );
+
+      if (!updatedOrder) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Không tìm thấy đơn hàng!" });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Cập nhật trạng thái thành công!",
+        data: updatedOrder,
+      });
+    } catch (error) {
+      console.error("Lỗi cập nhật trạng thái:", error);
+      return res.status(500).json({ success: false, message: "Lỗi server" });
+    }
+  },
+  async assignShipper(req, res) {
+    try {
+      const { orderCode } = req.params;
+      const { newStatus, shipperId } = req.body; // shipperId này chính là employee_id
+
+      // Gọi hàm model vừa viết
+      const updatedOrder = await OrderModel.assignShipperAndStatus(
+        orderCode,
+        newStatus,
+        shipperId,
+      );
+
+      if (!updatedOrder) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Không tìm thấy đơn hàng!" });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Phân công shipper thành công!",
+        data: updatedOrder,
+      });
+    } catch (error) {
+      console.error("Lỗi phân công shipper:", error);
+      return res.status(500).json({ success: false, message: "Lỗi server" });
+    }
+  },
+  async completeOrder(req, res) {
+    try {
+      const { orderCode } = req.params;
+
+      // 1. Kiểm tra xem người dùng đã upload ảnh minh chứng chưa
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: "Vui lòng tải lên hình ảnh minh chứng giao hàng!",
+        });
+      }
+
+      // Lấy tên file ảnh từ Multer
+      const proofImageFilename = req.file.filename;
+
+      // 2. Gọi hàm trong Model thực hiện Transaction (Lưu ảnh -> Lấy ID -> Cập nhật Order)
+      const result = await OrderModel.completeOrderWithProof(
+        orderCode,
+        proofImageFilename,
+      );
+
+      if (!result || !result.order) {
+        return res.status(404).json({
+          success: false,
+          message: "Không tìm thấy đơn hàng hoặc cập nhật thất bại!",
+        });
+      }
+
+      // 3. Trả về kết quả thành công
+      return res.status(200).json({
+        success: true,
+        message:
+          "🎉 Đã xác nhận giao hàng thành công và cập nhật ảnh minh chứng!",
+        data: {
+          order: result.order,
+          proof: result.proof,
+        },
+      });
+    } catch (error) {
+      console.error("Lỗi khi hoàn thành đơn hàng:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi server khi xử lý hoàn thành đơn hàng",
+      });
+    }
+  },
+
+  async cancelOrder(req, res) {
+    try {
+      const { orderCode } = req.params;
+
+      // Gọi hàm trong Model thực hiện Transaction: Hủy đơn, hoàn trả kho và tính lại giá gốc bình quân
+      const result = await OrderModel.cancelAndRestockOrder(orderCode);
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "🚫 Hủy đơn hàng, hoàn trả kho và tính lại giá vốn thành công!",
+        data: {
+          order: result.updatedOrder,
+          needsRefund: result.needsRefund, // Cờ báo hiệu cho frontend/admin biết đơn này có cần hoàn tiền hay không
+        },
+      });
+    } catch (error) {
+      console.error("Lỗi khi hủy đơn hàng hoàn kho:", error);
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Lỗi server khi hủy đơn hàng",
+      });
+    }
+  },
+
+  async getShipperOrders(req, res) {
+    try {
+      // Giả sử middleware xác thực token đã gán thông tin nhân viên vào req.user (hoặc req.employee)
+      const shipperId = req.employee.id;
+      console.log("id shipper là ", shipperId);
+      const orders = await OrderModel.getShipperOrders(shipperId);
+      return res.status(200).json({
+        success: true,
+        orders: orders,
+      });
+    } catch (error) {
+      console.error("Lỗi lấy danh sách đơn của shipper:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi server khi lấy danh sách đơn hàng",
+        error: error.message,
+      });
+    }
+  },
+
+  async failOrder(req, res) {
+    try {
+      const { orderCode } = req.params;
+      const { reason } = req.body; // 🟢 Lấy lý do dạng text từ frontend gửi lên
+
+      if (!reason || !reason.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Vui lòng nhập lý do giao thất bại!",
+        });
+      }
+
+      // Gọi hàm trong Model để cập nhật trạng thái đơn thành 6 và lưu lý do
+      const updatedOrder = await OrderModel.failOrderWithReason(
+        orderCode,
+        reason,
+      );
+
+      if (!updatedOrder) {
+        return res.status(404).json({
+          success: false,
+          message: "Không tìm thấy đơn hàng hoặc cập nhật thất bại!",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "⚠️ Đã ghi nhận trạng thái giao thất bại và lưu lý do!",
+        data: updatedOrder,
+      });
+    } catch (error) {
+      console.error("Lỗi khi xử lý giao thất bại:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi server khi xử lý giao thất bại",
+      });
+    }
+  },
+
+  async refundOrder(req, res) {
+    try {
+      const { orderCode } = req.params;
+
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: "Vui lòng tải lên hình ảnh biên lai hoàn tiền!",
+        });
+      }
+
+      const refundImageFilename = req.file.filename;
+
+      const updatedOrder = await OrderModel.refundOrder(
+        orderCode,
+        refundImageFilename,
+      );
+
+      if (!updatedOrder) {
+        return res.status(404).json({
+          success: false,
+          message: "Không tìm thấy đơn hàng!",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "💸 Đã xác nhận hoàn tiền và lưu biên lai thành công!",
+        data: updatedOrder,
+      });
+    } catch (error) {
+      console.error("Lỗi khi xử lý hoàn tiền:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi server khi xử lý hoàn tiền",
+      });
+    }
+  },
+};
+
+module.exports = OrderController;
