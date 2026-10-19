@@ -1,75 +1,77 @@
 const pool = require("../config/db");
 
 class Brand {
+  // Lấy danh sách thương hiệu
 
-    // Lấy danh sách thương hiệu
-    static async getAll() {
-        const result = await pool.query(
-            `SELECT *
-             FROM brands
-             ORDER BY id DESC`
-        );
+  static async getAll(status = null) {
+    const result = await pool.query(
+      `SELECT *
+         FROM brands
+         WHERE ($1::INTEGER IS NULL OR status = $1)
+         ORDER BY id DESC`,
+      [status],
+    );
 
-        return result.rows;
-    }
+    return result.rows;
+  }
 
-    // Tìm thương hiệu bằng tên
-    static async findByName(name) {
-        const result = await pool.query(
-            `SELECT id
+  // Tìm thương hiệu bằng tên
+  static async findByName(name) {
+    const result = await pool.query(
+      `SELECT id
              FROM brands
              WHERE name = $1`,
-            [name]
-        );
+      [name],
+    );
 
-        return result.rows[0];
-    }
+    return result.rows[0];
+  }
 
-    // Tìm thương hiệu bằng tên, trừ ID hiện tại
-    static async findByNameExceptId(name, id) {
-        const result = await pool.query(
-            `SELECT id
+  // Tìm thương hiệu bằng tên, trừ ID hiện tại
+  static async findByNameExceptId(name, id) {
+    const result = await pool.query(
+      `SELECT id
              FROM brands
              WHERE name = $1
              AND id <> $2`,
-            [name, id]
-        );
+      [name, id],
+    );
 
-        return result.rows[0];
-    }
+    return result.rows[0];
+  }
 
-    // Thêm thương hiệu
-    static async create(name) {
-        const result = await pool.query(
-            `INSERT INTO brands
+  // Thêm thương hiệu
+  static async create(name) {
+    const result = await pool.query(
+      `INSERT INTO brands
                 (name)
              VALUES
                 ($1)
              RETURNING *`,
-            [name]
-        );
+      [name],
+    );
 
-        return result.rows[0];
-    }
+    return result.rows[0];
+  }
 
-    // Cập nhật thương hiệu
-    static async update(id, name) {
-        const result = await pool.query(
-            `UPDATE brands
+  // Cập nhật thương hiệu
+  static async update(id, name) {
+    const result = await pool.query(
+      `UPDATE brands
              SET name = $1,
                  updated_at = CURRENT_TIMESTAMP
              WHERE id = $2
              RETURNING *`,
-            [name, id]
-        );
+      [name, id],
+    );
 
-        return result.rows[0];
-    }
+    return result.rows[0];
+  }
 
-    // Khóa / mở khóa thương hiệu
-    static async updateStatus(id) {
-        const result = await pool.query(
-            `UPDATE brands
+  // Khóa / mở khóa thương hiệu
+  static async updateStatus(id) {
+    const result = await pool.query(
+      `UPDATE brands
              SET status =
                 CASE
                     WHEN status = 1 THEN 0
@@ -78,11 +80,11 @@ class Brand {
                 updated_at = CURRENT_TIMESTAMP
              WHERE id = $1
              RETURNING *`,
-            [id]
-        );
+      [id],
+    );
 
-        return result.rows[0];
-    }
+    return result.rows[0];
+  }
 }
 
 module.exports = Brand;

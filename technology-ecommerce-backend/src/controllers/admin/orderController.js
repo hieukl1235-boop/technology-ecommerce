@@ -1,4 +1,5 @@
-const OrderModel = require("../../models/Order")
+const OrderModel = require("../../models/Order");
+const NotificationModel = require("../../models/Notification");
 const OrderController = {
   async getAllOrders(req, res) {
     try {
@@ -58,6 +59,24 @@ const OrderController = {
         return res
           .status(404)
           .json({ success: false, message: "Không tìm thấy đơn hàng!" });
+      }
+      const user = await OrderModel.getUserByOrderCode(orderCode);
+
+      if (!user) {
+        console.error("Không tìm thấy khách hàng của đơn:", orderCode);
+        return;
+      }
+      try {
+        await NotificationModel.createNotification(
+          user.user_id,
+          "Đơn hàng của bạn bắt đầu vận chuyển",
+          `Đơn hàng #${orderCode} của bạn đã giao cho shipper.`,
+          "order",
+          orderCode, // reference_id (có thể là orderCode hoặc id tùy thiết kế bảng orders của bạn)
+        );
+      } catch (notifError) {
+        // Log lỗi thông báo nhưng không làm gián đoạn response trả về cho client
+        console.error("Lỗi tạo thông báo hủy đơn:", notifError);
       }
 
       return res.status(200).json({
@@ -120,9 +139,27 @@ const OrderController = {
   async cancelOrder(req, res) {
     try {
       const { orderCode } = req.params;
+      const user = await OrderModel.getUserByOrderCode(orderCode);
+
+      if (!user) {
+        console.error("Không tìm thấy khách hàng của đơn:", orderCode);
+        return;
+      }
 
       // Gọi hàm trong Model thực hiện Transaction: Hủy đơn, hoàn trả kho và tính lại giá gốc bình quân
       const result = await OrderModel.cancelAndRestockOrder(orderCode);
+      try {
+        await NotificationModel.createNotification(
+          user.user_id,
+          "Hủy đơn hàng thành công",
+          `Đơn hàng #${orderCode} của bạn đã được hủy và hoàn kho thành công.`,
+          "order",
+          orderCode, // reference_id (có thể là orderCode hoặc id tùy thiết kế bảng orders của bạn)
+        );
+      } catch (notifError) {
+        // Log lỗi thông báo nhưng không làm gián đoạn response trả về cho client
+        console.error("Lỗi tạo thông báo hủy đơn:", notifError);
+      }
 
       return res.status(200).json({
         success: true,
@@ -146,8 +183,8 @@ const OrderController = {
     try {
       // Giả sử middleware xác thực token đã gán thông tin nhân viên vào req.user (hoặc req.employee)
       const shipperId = req.employee.id;
-      console.log("id shipper là ", shipperId);
       const orders = await OrderModel.getShipperOrders(shipperId);
+
       return res.status(200).json({
         success: true,
         orders: orders,
@@ -185,6 +222,24 @@ const OrderController = {
           success: false,
           message: "Không tìm thấy đơn hàng hoặc cập nhật thất bại!",
         });
+      }
+      const user = await OrderModel.getUserByOrderCode(orderCode);
+
+      if (!user) {
+        console.error("Không tìm thấy khách hàng của đơn:", orderCode);
+        return;
+      }
+      try {
+        await NotificationModel.createNotification(
+              user.user_id,
+          "Giao hàng không thành công",
+          `Đơn hàng #${orderCode} của bạn đang được giao. Vui lòng kiểm tra điện thoại để chúng tôi sớm giao hàng đến với quý khách..`,
+          "order",
+          orderCode, // reference_id (có thể là orderCode hoặc id tùy thiết kế bảng orders của bạn)
+        );
+      } catch (notifError) {
+        // Log lỗi thông báo nhưng không làm gián đoạn response trả về cho client
+        console.error("Lỗi tạo thông báo hủy đơn:", notifError);
       }
 
       return res.status(200).json({
@@ -225,6 +280,24 @@ const OrderController = {
           message: "Không tìm thấy đơn hàng!",
         });
       }
+      const user = await OrderModel.getUserByOrderCode(orderCode);
+
+      if (!user) {
+        console.error("Không tìm thấy khách hàng của đơn:", orderCode);
+        return;
+      }
+      try {
+        await NotificationModel.createNotification(
+          user.user_id,
+          "Hoàn tiền đơn hàng",
+          `Đơn hàng #${orderCode} của bạn đã được hoàn tiền thành công.`,
+          "order",
+          orderCode, // reference_id (có thể là orderCode hoặc id tùy thiết kế bảng orders của bạn)
+        );
+      } catch (notifError) {
+        // Log lỗi thông báo nhưng không làm gián đoạn response trả về cho client
+        console.error("Lỗi tạo thông báo hủy đơn:", notifError);
+      }
 
       return res.status(200).json({
         success: true,
@@ -236,6 +309,32 @@ const OrderController = {
       return res.status(500).json({
         success: false,
         message: "Lỗi server khi xử lý hoàn tiền",
+      });
+    }
+  },
+
+  async getUserByOrderCode(req, res) {
+    try {
+      const { order_code } = req.query;
+
+      const user = await OrderModel.getUserByOrderCode(order_code);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "Không tìm thấy đơn hàng",
+        });
+      }
+
+      return res.json({
+        success: true,
+        user_id: user.user_id,
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi máy chủ",
       });
     }
   },

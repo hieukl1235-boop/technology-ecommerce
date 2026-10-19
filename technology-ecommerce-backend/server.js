@@ -23,6 +23,9 @@ const productVariantRoutes = require("./src/routes/user/productVarianRouter");
 const bannerRoutes = require("./src/routes/admin/bannerRoutes");
 const accountRoutes = require("./src/routes/user/accountRoutes");
 const chatRoutes = require("./src/routes/user/chatRoutes");
+const NotificationRoutes = require("./src/routes/admin/notificationRoutes")
+const statisticsRoutes = require("./src/routes/admin/statisticsRoutes");
+
 const app = express();
 
 app.use(cors());
@@ -56,8 +59,9 @@ app.use("/api/orders", require("./src/routes/user/orderRoutes"));
 app.use("/api/admin/orders", require("./src/routes/admin/orderRoutes"));
 app.use("/api/shipper/orders", require("./src/routes/shipper/orderRoutes"));
 app.use("/api/chat", chatRoutes);
+app.use("/api/notifications", NotificationRoutes);
+app.use("/api/admin/statistics", statisticsRoutes);
 const server = http.createServer(app);
-
 
 const io = new Server(server, {
   cors: {
@@ -67,10 +71,10 @@ const io = new Server(server, {
 });
 
 io.on("connection", (socket) => {
-  console.log("Socket kết nối thành công:", socket.id);
+  // console.log("Socket kết nối thành công:", socket.id);
 
   socket.on("disconnect", (reason) => {
-    console.log("Socket ngắt kết nối:", socket.id, reason);
+    // console.log("Socket ngắt kết nối:", socket.id, reason);
   });
 });
 

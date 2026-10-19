@@ -62,6 +62,15 @@ exports.createCoupon = async (req, res) => {
       req.body.max_discount === "" || req.body.max_discount == null
         ? null
         : Number(req.body.max_discount);
+    const min_order_value =
+      req.body.min_order_value === "" || req.body.min_order_value == null
+        ? 0
+        : Number(req.body.min_order_value);
+    if (!Number.isFinite(min_order_value) || min_order_value < 0) {
+      return res.status(400).json({
+        message: "Giá trị đơn hàng tối thiểu phải lớn hơn hoặc bằng 0",
+      });
+    }
 
     const quantity = Number(req.body.quantity);
     const start_date = req.body.start_date;
@@ -155,16 +164,18 @@ exports.createCoupon = async (req, res) => {
     }
 
     // Tạo mã giảm giá chính
-    const coupon = await Coupon.create(
-      code,
-      name,
-      discount_type,
-      discount_value,
-      max_discount,
-      quantity,
-      start_date,
-      end_date,
-    );
+   const coupon = await Coupon.create(
+     client,
+     code,
+     name,
+     discount_type,
+     discount_value,
+     max_discount,
+     min_order_value,
+     quantity,
+     start_date,
+     end_date,
+   );
 
     // Thêm các danh mục vào bảng trung gian coupon_categories
     await Coupon.addCategories(client, coupon.id, category_ids);
@@ -221,6 +232,15 @@ exports.updateCoupon = async (req, res) => {
       req.body.max_discount === "" || req.body.max_discount == null
         ? null
         : Number(req.body.max_discount);
+    const min_order_value =
+      req.body.min_order_value === "" || req.body.min_order_value == null
+        ? 0
+        : Number(req.body.min_order_value);
+      if (!Number.isFinite(min_order_value) || min_order_value < 0) {
+        return res.status(400).json({
+          message: "Giá trị đơn hàng tối thiểu phải lớn hơn hoặc bằng 0",
+        });
+      }
 
     const quantity = Number(req.body.quantity);
     const start_date = req.body.start_date;
@@ -306,12 +326,14 @@ exports.updateCoupon = async (req, res) => {
 
     // Cập nhật thông tin mã giảm giá chính
     const coupon = await Coupon.update(
+      client,
       id,
       code,
       name,
       discount_type,
       discount_value,
       max_discount,
+      min_order_value,
       quantity,
       start_date,
       end_date,

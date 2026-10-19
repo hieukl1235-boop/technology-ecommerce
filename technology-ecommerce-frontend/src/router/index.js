@@ -174,6 +174,11 @@ const router = createRouter({
       path: '/ship',
       name: 'ship',
       component: () => import('../views/shipper/ShipperOrders.vue'),
+      meta: {
+        title: 'Shipper',
+        isMenu: true,
+        permission: 'manage_delivery',
+      },
     },
     { path: '/product/:id', component: () => import('../views/user/Productdetail.vue') },
     {
@@ -183,6 +188,39 @@ const router = createRouter({
     {
       path: '/admin/chat',
       component: () => import('../views/admin/Chat.vue'),
+      meta: {
+        title: 'Tư vấn khách hàng',
+        isMenu: true,
+        permission: 'manage_chat',
+      },
+    },
+    {
+      path: '/admin/notification',
+      component: () => import('../views/admin/Adminnotification.vue'),
+      meta: {
+        title: 'Quản lí thông báo',
+        isMenu: true,
+        permission: 'manage_chat',
+      },
+    },
+    {
+      path: '/notifications',
+      component: () => import('../views/user/UserNotification.vue'),
+    },
+    {
+      path: '/user/orders/:orderCode',
+      name: 'OrderDetail',
+      component: () => import('../views/user/OrderDetail.vue'),
+      props: true, // (Tùy chọn) Cho phép truyền params trực tiếp vào props của component nếu muốn
+    },
+    {
+      path: '/admin/Dashboard',
+      component: () => import('../views/admin/AdminDashboard.vue'),
+      meta: {
+        title: 'Thống kê',
+        isMenu: true,
+        permission: 'view_statistics',
+      },
     },
   ],
 })

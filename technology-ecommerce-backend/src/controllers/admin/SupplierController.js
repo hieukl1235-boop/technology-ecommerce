@@ -41,7 +41,8 @@ const getSupplierById = async (req, res) => {
 // Thêm nhà cung cấp và gán các variant đã có
 const createSupplier = async (req, res) => {
   try {
-    const { name, phone, address, email, variant_ids } = req.body;
+    const { name, phone, address, email, representative, variant_ids } =
+      req.body;
 
     // Kiểm tra tên nhà cung cấp
     if (!name) {
@@ -51,7 +52,13 @@ const createSupplier = async (req, res) => {
     }
 
     // 1. Tạo nhà cung cấp
-    const newSupplier = await Supplier.create(name, phone, address, email);
+    const newSupplier = await Supplier.create(
+      name,
+      phone,
+      address,
+      email,
+      representative,
+    );
 
     // 2. Gán nhà cung cấp cho các variant đã chọn
     if (Array.isArray(variant_ids)) {
@@ -77,7 +84,8 @@ const createSupplier = async (req, res) => {
 const updateSupplier = async (req, res) => {
   try {
     const supplierId = req.params.id; // 🟢 Lấy ID nhà cung cấp từ URL params
-    const { name, phone, address, email, variant_ids } = req.body;
+    const { name, phone, address, email, variant_ids, representative } =
+      req.body;
 
     // 1. Cập nhật thông tin nhà cung cấp
     const updatedSupplier = await Supplier.update(
@@ -86,6 +94,7 @@ const updateSupplier = async (req, res) => {
       phone,
       address,
       email,
+      representative,
     );
 
     if (!updatedSupplier) {

@@ -26,24 +26,25 @@ class Supplier {
   }
 
   // 3. Thêm mới nhà cung cấp
-  static async create(name, phone, address, email) {
+  static async create(name, phone, address, email, representative) {
     const { rows } = await pool.query(
-      `INSERT INTO suppliers (name, phone, address, email)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO suppliers (name, phone, address, email,representative)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [name, phone, address, email],
+      [name, phone, address, email, representative],
     );
     return rows[0];
   }
 
   // 4. Sửa thông tin nhà cung cấp
-  static async update(id, name, phone, address, email) {
+  static async update(id, name, phone, address, email, representative) {
     const { rows } = await pool.query(
       `UPDATE suppliers 
        SET name = $1, phone = $2, address = $3, email = $4 
-       WHERE id = $5
+       ,representative = $5
+       WHERE id = $6
        RETURNING *`,
-      [name, phone, address, email, id],
+      [name, phone, address, email, representative, id],
     );
     return rows[0];
   }

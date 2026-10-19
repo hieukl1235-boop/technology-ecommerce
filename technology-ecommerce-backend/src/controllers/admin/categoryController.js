@@ -5,22 +5,23 @@ const Category = require("../../models/Category");
 // LẤY DANH SÁCH DANH MỤC
 // ========================================
 
+
 exports.getCategories = async (req, res) => {
-    try {
+  try {
+    const status = req.query.status ?? null;
 
-        const categories = await Category.getAll();
+    const categories = await Category.getAll(status);
 
-        res.json(categories);
+    res.json(categories);
+  } catch (error) {
+    console.error(error);
 
-    } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            message: "Lỗi server"
-        });
-    }
+    res.status(500).json({
+      message: "Lỗi server",
+    });
+  }
 };
+
 
 
 // ========================================

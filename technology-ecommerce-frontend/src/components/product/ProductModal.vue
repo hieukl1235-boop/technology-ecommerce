@@ -1,7 +1,7 @@
 <template>
   <div v-if="isOpen" class="modal-overlay">
     <div class="modal-card shadow-lg">
-      <!-- HEADER: Tiêu đề và nút Đóng (X) ở góc trên -->
+      <!-- HEADER -->
       <div class="modal-header">
         <h4 class="mb-0 fw-bold text-dark">
           {{ productData ? '✏️ Chỉnh sửa sản phẩm' : '➕ Thêm sản phẩm mới' }}
@@ -9,7 +9,7 @@
         <button type="button" class="btn-close" @click="$emit('close')"></button>
       </div>
 
-      <!-- BODY: Nội dung form cuộn mượt mà -->
+      <!-- BODY -->
       <div class="modal-body">
         <!-- PHẦN 1: THÔNG TIN CƠ BẢN -->
         <div class="section-title">Thông tin chung</div>
@@ -45,11 +45,10 @@
           </div>
         </div>
 
-        <!-- ẢNH CHÍNH SẢN PHẨM -->
+        <!-- ẢNH CHÍNH -->
         <div class="mb-3">
           <label class="form-label fw-semibold">Ảnh chính sản phẩm:</label>
 
-          <!-- ✨ Hiển thị ảnh xem trước nếu vừa chọn file ảnh mới -->
           <div v-if="product.mainImagePreviewUrl" class="mb-2">
             <img
               :src="product.mainImagePreviewUrl"
@@ -60,7 +59,6 @@
             <span class="text-muted small text-success fw-bold">✨ Ảnh mới chọn (Chưa lưu)</span>
           </div>
 
-          <!-- Hiển thị ảnh cũ nếu đang ở chế độ sửa và chưa chọn ảnh mới -->
           <div v-else-if="product.existingMainImage" class="mb-2">
             <img
               :src="`http://localhost:3000/uploads/products/${product.existingMainImage}`"
@@ -68,19 +66,17 @@
               class="rounded border mb-1 d-block"
               style="width: 80px; height: 80px; object-fit: cover"
             />
-            <span class="text-muted small"
-              >Ảnh hiện tại (Chọn file bên dưới nếu muốn thay đổi)</span
-            >
+            <span class="text-muted small">Ảnh hiện tại (Chọn file bên dưới nếu muốn thay đổi)</span>
           </div>
 
           <input type="file" class="form-control" accept="image/*" @change="handleMainImage" />
         </div>
+
         <!-- ẢNH PHỤ -->
         <div class="mb-3">
           <label class="form-label fw-semibold">Ảnh phụ (có thể chọn nhiều):</label>
 
           <div class="d-flex flex-wrap gap-2 mb-2">
-            <!-- Ảnh phụ đã lưu -->
             <div v-for="img in product.existingImages" :key="img.id" class="position-relative">
               <img
                 :src="`http://localhost:3000/uploads/products/${img.image_url}`"
@@ -96,7 +92,6 @@
               </button>
             </div>
 
-            <!-- Ảnh phụ mới chọn (chưa lưu) -->
             <div
               v-for="(img, i) in product.newImages"
               :key="img.previewUrl"
@@ -138,7 +133,7 @@
 
         <hr class="my-4" />
 
-        <!-- PHẦN 2: DANH SÁCH BIẾN THỂ -->
+        <!-- PHẦN 2: BIẾN THỂ -->
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h5 class="fw-bold mb-0 text-secondary">📦 Danh sách biến thể</h5>
           <button type="button" class="btn btn-sm btn-outline-primary" @click="addVariant">
@@ -150,7 +145,6 @@
           <div class="d-flex justify-content-between align-items-center mb-3">
             <span class="badge bg-secondary">Biến thể số {{ index + 1 }}</span>
             <div class="d-flex gap-2">
-              <!-- Nút Bật/Tắt biến thể -->
               <button
                 type="button"
                 class="btn btn-sm"
@@ -159,7 +153,6 @@
               >
                 {{ variant.status === 1 ? '🔒 Tạm ẩn' : '🔓 Bật lại' }}
               </button>
-              <!-- Nút Xóa biến thể -->
               <button
                 type="button"
                 class="btn btn-sm btn-outline-danger"
@@ -179,9 +172,24 @@
                 placeholder="Mã SKU..."
               />
             </div>
+
+            <!-- 💰 GIÁ GỐC (READ-ONLY) — Chỉ xem, không cho sửa, không gửi API -->
+            <div class="col-md-6 mb-3">
+              <label class="form-label small fw-semibold">
+                💰 Giá gốc
+                <span class="readonly-hint">(Chỉ xem)</span>
+              </label>
+              <div class="readonly-field">
+                <span v-if="Number(variant.cost_price) > 0" class="readonly-value">
+                  {{ Number(variant.cost_price).toLocaleString('vi-VN') }}đ
+                </span>
+                <span v-else class="readonly-empty">Chưa cập nhật giá nhập</span>
+                <span class="lock-icon" title="Trường này không thể chỉnh sửa">🔒</span>
+              </div>
+            </div>
           </div>
+
           <div class="row">
-            <!-- Giá bán gốc -->
             <div class="col-md-6 mb-3">
               <label class="form-label small fw-semibold">Giá bán (Gốc):</label>
               <input
@@ -192,7 +200,6 @@
               />
             </div>
 
-            <!-- Giá khuyến mãi (Sale) -->
             <div class="col-md-6 mb-3">
               <label class="form-label small fw-semibold">Giá khuyến mãi (Sale):</label>
               <input
@@ -208,7 +215,6 @@
           <div class="mb-3">
             <label class="form-label small fw-semibold">Ảnh biến thể:</label>
 
-            <!-- ✨ Hiển thị ảnh xem trước nếu vừa chọn file ảnh mới cho biến thể -->
             <div v-if="variant.previewUrl" class="mb-2">
               <img
                 :src="variant.previewUrl"
@@ -216,12 +222,11 @@
                 class="rounded border mb-1 d-block"
                 style="width: 50px; height: 50px; object-fit: cover"
               />
-              <span class="text-muted small text-success fw-bold" style="font-size: 0.75rem"
-                >✨ Ảnh mới chọn (Chưa lưu)</span
-              >
+              <span class="text-muted small text-success fw-bold" style="font-size: 0.75rem">
+                ✨ Ảnh mới chọn (Chưa lưu)
+              </span>
             </div>
 
-            <!-- Hiển thị ảnh cũ của biến thể nếu có -->
             <div v-else-if="variant.existingImageUrl" class="mb-2">
               <img
                 :src="`http://localhost:3000/uploads/variants/${variant.existingImageUrl}`"
@@ -229,9 +234,9 @@
                 class="rounded border mb-1 d-block"
                 style="width: 50px; height: 50px; object-fit: cover"
               />
-              <span class="text-muted small" style="font-size: 0.75rem"
-                >Ảnh hiện tại của biến thể</span
-              >
+              <span class="text-muted small" style="font-size: 0.75rem">
+                Ảnh hiện tại của biến thể
+              </span>
             </div>
 
             <input
@@ -264,9 +269,8 @@
         </div>
       </div>
 
-      <!-- FOOTER: Nút hành động cố định dưới cùng -->
+      <!-- FOOTER -->
       <div class="modal-footer">
-        <!-- Nút Ngừng kinh doanh / Khôi phục nhanh (Chỉ hiển thị khi đang Sửa) -->
         <button
           v-if="productData"
           type="button"
@@ -296,42 +300,43 @@ const props = defineProps({
 })
 const emit = defineEmits(['close', 'success'])
 
-// 1. Quản lý danh mục, thương hiệu và thuộc tính dùng chung
+// 1. Danh mục, thương hiệu, thuộc tính
 const categories = ref([])
 const brands = ref([])
 const attributes = ref([])
 const attributeValues = ref([])
 
-// 2. Khung dữ liệu mặc định của sản phẩm
+// 2. Khung dữ liệu mặc định
 const getInitialProductState = () => ({
   category_id: '',
   brand_id: '',
   name: '',
   existingMainImage: null,
   main_image: null,
-  mainImagePreviewUrl: null, // ✨ Thêm URL preview cho ảnh chính
+  mainImagePreviewUrl: null,
   description: '',
   variants: [createEmptyVariant()],
-  existingImages: [], // [{id, image_url}] ảnh phụ đã lưu
-  removedImageIds: [], // id ảnh phụ bị bấm xóa
-  newImages: [], // [{file, previewUrl}] ảnh phụ mới chọn
+  existingImages: [],
+  removedImageIds: [],
+  newImages: [],
 })
 
-// 3. Khung dữ liệu mặc định của một biến thể
+// 3. Biến thể mặc định — có cost_price để hiển thị readonly
 const createEmptyVariant = () => ({
   sku: '',
   selling_price: '',
   sale_price: '',
+  cost_price: 0, // 💰 Giá gốc — chỉ hiển thị, không cho sửa
   existingImageUrl: null,
   image_url: null,
-  previewUrl: null, // ✨ Thêm URL preview cho ảnh biến thể
+  previewUrl: null,
   selectedAttributes: {},
   status: 1,
 })
 
 const product = ref(getInitialProductState())
 
-// 4. Computed lọc danh mục/thương hiệu thông minh
+// 4. Computed lọc danh mục/thương hiệu
 const availableCategories = computed(() =>
   categories.value.filter((cat) => cat.status === 1 || cat.id === product.value.category_id),
 )
@@ -340,7 +345,7 @@ const availableBrands = computed(() =>
   brands.value.filter((brand) => brand.status === 1 || brand.id === product.value.brand_id),
 )
 
-// 5. Các hàm thao tác với Biến thể (Thêm, Xóa, Đổi trạng thái)
+// 5. Thao tác biến thể
 const addVariant = () => product.value.variants.push(createEmptyVariant())
 
 const removeVariant = (index) => {
@@ -365,19 +370,19 @@ const toggleVariantStatus = (index) => {
   }
 }
 
-// 6. Xử lý file ảnh (Có tạo URL ảo để preview ngay lập tức)
+// 6. Xử lý ảnh
 const handleMainImage = (e) => {
   const file = e.target.files[0]
   if (file) {
     product.value.main_image = file
-    product.value.mainImagePreviewUrl = URL.createObjectURL(file) // ✨ Tạo URL ảo ảnh chính
+    product.value.mainImagePreviewUrl = URL.createObjectURL(file)
   }
 }
 const handleGalleryImages = (e) => {
   for (const file of e.target.files) {
     product.value.newImages.push({ file, previewUrl: URL.createObjectURL(file) })
   }
-  e.target.value = '' // cho phép chọn lại cùng file
+  e.target.value = ''
 }
 
 const removeNewImage = (index) => {
@@ -394,14 +399,14 @@ const handleVariantImage = (e, variant) => {
   const file = e.target.files[0]
   if (file) {
     variant.image_url = file
-    variant.previewUrl = URL.createObjectURL(file) // ✨ Tạo URL ảo ảnh biến thể
+    variant.previewUrl = URL.createObjectURL(file)
   }
 }
 
 const getAttributeValues = (attrId) =>
   attributeValues.value.filter((v) => Number(v.attribute_id) === Number(attrId))
 
-// 7. Watch hứng dữ liệu khi bấm Thêm mới hoặc Sửa
+// 7. Watch khi mở modal
 watch(
   () => props.productData,
   (newData) => {
@@ -413,7 +418,7 @@ watch(
         description: newData.description || '',
         existingMainImage: newData.main_image || null,
         main_image: null,
-        mainImagePreviewUrl: null, // Reset preview khi mở modal sửa
+        mainImagePreviewUrl: null,
         existingImages: newData.images || [],
         removedImageIds: [],
         newImages: [],
@@ -423,9 +428,10 @@ watch(
               sku: v.sku || '',
               selling_price: v.selling_price ?? '',
               sale_price: v.sale_price,
+              cost_price: v.cost_price ?? 0, // 💰 map giá gốc để hiển thị readonly
               existingImageUrl: v.image_url || null,
               image_url: null,
-              previewUrl: null, // Reset preview biến thể
+              previewUrl: null,
               selectedAttributes:
                 v.attributes?.reduce((acc, attr) => {
                   acc[attr.attribute_id] = attr.attribute_value_id
@@ -435,7 +441,6 @@ watch(
             }))
           : [createEmptyVariant()],
       }
-      console.log('Đã load dữ liệu sản phẩm vào Modal:', product.value)
     } else {
       product.value = getInitialProductState()
     }
@@ -443,7 +448,7 @@ watch(
   { immediate: true },
 )
 
-// 8. Tải dữ liệu danh mục, thương hiệu, thuộc tính khi mở Modal
+// 8. Load dữ liệu cấu hình
 onMounted(async () => {
   try {
     const token = localStorage.getItem('token')
@@ -463,7 +468,7 @@ onMounted(async () => {
   }
 })
 
-// 9. Gửi dữ liệu lên Backend qua FormData
+// 9. Submit form
 const handleSubmit = async () => {
   const actionText = props.productData ? 'cập nhật sản phẩm này' : 'thêm sản phẩm mới này'
   if (!confirm(`Bạn có chắc chắn muốn ${actionText}?`)) return
@@ -482,9 +487,8 @@ const handleSubmit = async () => {
     product.value.newImages.forEach((img) => formData.append('gallery_images', img.file))
     formData.append('removed_image_ids', JSON.stringify(product.value.removedImageIds))
 
-    // Tạo mảng payload cho biến thể và mảng theo dõi index của ảnh
+    // Payload biến thể — KHÔNG gửi cost_price (chỉ hiển thị, không sửa)
     const variantsPayload = product.value.variants.map((v) => {
-      // Kiểm tra xem biến thể này có chọn file ảnh mới không
       const hasNewImage = v.image_url instanceof File
 
       return {
@@ -494,23 +498,19 @@ const handleSubmit = async () => {
         sale_price: v.sale_price ? Number(v.sale_price) : null,
         attributes: Object.values(v.selectedAttributes).filter(Boolean).map(Number),
         status: v.status,
-
-        // Cờ báo hiệu biến thể này có file ảnh mới hay không
         has_new_image: hasNewImage,
-
-        // Nếu không có ảnh mới, phải gửi lại tên ảnh cũ cho Backend
         image_url: hasNewImage ? null : v.existingImageUrl,
       }
     })
 
     formData.append('variants', JSON.stringify(variantsPayload))
 
-    // Chỉ push các file ảnh mới lên
     product.value.variants.forEach((v) => {
       if (v.image_url instanceof File) {
         formData.append('variant_images', v.image_url)
       }
     })
+
     const url = props.productData
       ? `http://localhost:3000/api/admin/products/${props.productData.id}`
       : 'http://localhost:3000/api/admin/products'
@@ -528,7 +528,7 @@ const handleSubmit = async () => {
   }
 }
 
-// 10. Đổi trạng thái nhanh sản phẩm từ Modal
+// 10. Toggle trạng thái nhanh
 const handleToggleStatus = async () => {
   const newStatus = props.productData.status === 1 ? 0 : 1
   const actionText = newStatus === 1 ? 'khôi phục' : 'ngừng kinh doanh'
@@ -617,5 +617,45 @@ const handleToggleStatus = async () => {
   padding: 15px;
   border-radius: 6px;
   margin-bottom: 15px;
+}
+
+/* ---- READONLY FIELD (Giá gốc) ---- */
+.readonly-hint {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  font-weight: 500;
+  margin-left: 2px;
+}
+
+.readonly-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  background-color: #fffbeb;
+  border: 1px dashed #fbbf24;
+  border-radius: 6px;
+  min-height: 34px;
+  cursor: not-allowed;
+  user-select: none;
+}
+
+.readonly-value {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #b45309;
+}
+
+.readonly-empty {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: #a8a29e;
+  font-weight: 500;
+}
+
+.lock-icon {
+  font-size: 0.85rem;
+  opacity: 0.65;
 }
 </style>

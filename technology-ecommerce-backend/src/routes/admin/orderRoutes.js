@@ -33,6 +33,7 @@ router.patch(
   orderController.refundOrder,
 );
 
+router.get("/user", orderController.getUserByOrderCode);
 
 router.patch("/:orderCode/cancel", authenticate, orderController.cancelOrder);
 

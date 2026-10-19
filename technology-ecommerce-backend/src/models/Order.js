@@ -1,5 +1,5 @@
-const pool = require('../config/db');
-const dateFormat = require('dateformat');
+const pool = require("../config/db");
+const dateFormat = require("dateformat");
 
 const OrderModel = {
   async getAllOrders() {
@@ -27,6 +27,16 @@ const OrderModel = {
     const result = await pool.query(query);
     return result.rows;
   },
+  async getUserByOrderCode(orderCode) {
+    const result = await pool.query(
+      `SELECT o.user_id
+     FROM orders o
+     WHERE o.order_code = $1`,
+      [orderCode],
+    );
+
+    return result.rows[0];
+  },
   async createOrder(orderData) {
     const {
       user_id,
@@ -35,20 +45,21 @@ const OrderModel = {
       recipient_name,
       phone,
       shipping_address,
+      shipping_fee, // 🟢 Nhận thêm shipping_fee từ controller
       total_amount,
       payment_status,
       order_status,
     } = orderData;
 
-    // Ý nghĩa: Tự sinh mã đơn hàng độc nhất dựa theo thời gian thực để không bị lỗi trùng lặp hoặc thiếu dữ liệu
     const orderCode = "ORD-" + Date.now();
 
+    // 🟢 Đảm bảo bảng orders của bạn có cột shipping_fee
     const query = `
       INSERT INTO orders (
         order_code, user_id, payment_method_id, coupon_id, recipient_name, phone, 
-        shipping_address, order_date, total_amount, payment_status, order_status
+        shipping_address, shipping_fee, order_date, total_amount, payment_status, order_status
       ) 
-      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9, $10) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9, $10, $11) 
       RETURNING order_code
     `;
 
@@ -60,14 +71,14 @@ const OrderModel = {
       recipient_name,
       phone,
       shipping_address,
+      shipping_fee || 0, // Lưu phí ship, mặc định là 0 nếu không truyền
       total_amount,
-      payment_status !== undefined ? payment_status : 0, // 0: Mặc định chưa thanh toán
-      order_status !== undefined ? order_status : 1, // 1: Đang chờ xử lý
+      payment_status !== undefined ? payment_status : 0,
+      order_status !== undefined ? order_status : 1,
     ];
 
     const result = await pool.query(query, values);
 
-    // Ý nghĩa: Nếu khách có dùng mã giảm giá, tự động tăng số lượt đã sử dụng lên 1
     if (coupon_id) {
       await pool.query(
         "UPDATE coupons SET used_quantity = used_quantity + 1 WHERE id = $1",
@@ -311,14 +322,41 @@ const OrderModel = {
     return result.rows[0];
   },
   // Kiểm tra đơn hàng có thuộc về user hay không (tránh lỗ hổng bảo mật IDOR)
-   async checkOrderBelongsToUser(orderCode, userId) {
+  async checkOrderBelongsToUser(orderCode, userId) {
     const query = `SELECT order_code FROM orders WHERE order_code = $1 AND user_id = $2`;
     const { rows } = await pool.query(query, [orderCode, userId]);
     return rows.length > 0;
   },
 
-
- 
-}
+  async getOrderByCodeAndUserId(orderCode, userId) {
+    const query = `
+      SELECT 
+        o.order_code, o.order_date, o.total_amount, o.order_status, 
+        o.payment_status, o.shipping_address, o.phone, o.recipient_name, 
+        o.refund_image_url, dp.image_url AS delivery_proof_image,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'variant_id', od.variant_id, 
+              'product_name', p.name,
+              'sku', v.sku,
+              'quantity', od.quantity,
+              'unit_price', od.unit_price,
+              'image', v.image_url
+            )
+          ) FILTER (WHERE od.variant_id IS NOT NULL), '[]'
+        ) as items
+      FROM orders o
+      LEFT JOIN order_details od ON o.order_code = od.order_code
+      LEFT JOIN product_variants v ON od.variant_id = v.id
+      LEFT JOIN products p ON v.product_id = p.id
+      LEFT JOIN delivery_proofs dp ON o.delivery_proof_id = dp.id
+      WHERE o.order_code = $1 AND o.user_id = $2
+      GROUP BY o.order_code, dp.image_url;
+    `;
+    const { rows } = await pool.query(query, [orderCode, userId]);
+    return rows[0]; // Trả về đúng 1 đối tượng đơn hàng kèm theo mảng items
+  },
+};
 
 module.exports = OrderModel;

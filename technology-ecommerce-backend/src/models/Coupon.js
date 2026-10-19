@@ -18,7 +18,6 @@ class Coupon {
     return result.rows;
   }
 
-  // Tìm mã giảm giá theo ID
   // Tìm mã giảm giá theo ID kèm theo danh sách category_ids
   static async findById(id) {
     const result = await pool.query(
@@ -47,37 +46,43 @@ class Coupon {
   }
 
   // Thêm mã giảm giá
+
+  // Thêm mã giảm giá
   static async create(
+    client,
     code,
     name,
     discount_type,
     discount_value,
     max_discount,
+    min_order_value,
     quantity,
     start_date,
     end_date,
   ) {
-    const result = await pool.query(
+    const result = await client.query(
       `INSERT INTO coupons (
-                code,
-                name,
-                discount_type,
-                discount_value,
-                max_discount,
-                quantity,
-                used_quantity,
-                start_date,
-                end_date,
-                status
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, 0, $7, $8, 1)
-            RETURNING *`,
+        code,
+        name,
+        discount_type,
+        discount_value,
+        max_discount,
+        min_order_value,
+        quantity,
+        used_quantity,
+        start_date,
+        end_date,
+        status
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, 1)
+      RETURNING *`,
       [
         code,
         name,
         discount_type,
         discount_value,
         max_discount,
+        min_order_value,
         quantity,
         start_date,
         end_date,
@@ -89,34 +94,38 @@ class Coupon {
 
   // Cập nhật mã giảm giá
   static async update(
+    client,
     id,
     code,
     name,
     discount_type,
     discount_value,
     max_discount,
+    min_order_value,
     quantity,
     start_date,
     end_date,
   ) {
-    const result = await pool.query(
+    const result = await client.query(
       `UPDATE coupons
-             SET code = $1,
-                 name = $2,
-                 discount_type = $3,
-                 discount_value = $4,
-                 max_discount = $5,
-                 quantity = $6,
-                 start_date = $7,
-                 end_date = $8
-             WHERE id = $9
-             RETURNING *`,
+       SET code = $1,
+           name = $2,
+           discount_type = $3,
+           discount_value = $4,
+           max_discount = $5,
+           min_order_value = $6,
+           quantity = $7,
+           start_date = $8,
+           end_date = $9
+       WHERE id = $10
+       RETURNING *`,
       [
         code,
         name,
         discount_type,
         discount_value,
         max_discount,
+        min_order_value,
         quantity,
         start_date,
         end_date,
@@ -193,12 +202,25 @@ class Coupon {
   }
   static async getAvailableCoupons() {
     const query = `
-      SELECT * FROM coupons 
-      WHERE status = 1
-        AND start_date <= NOW() 
-        AND end_date >= NOW() 
-        AND used_quantity < quantity
-      ORDER BY id DESC
+      SELECT
+    c.*,
+    COALESCE(
+        json_agg(
+            json_build_object(
+                'id', ca.id,
+                'name', ca.name
+            )
+        ) FILTER (WHERE ca.id IS NOT NULL),
+        '[]'
+    ) AS categories
+FROM coupons c
+LEFT JOIN coupon_categories cc
+    ON c.id = cc.coupon_id
+LEFT JOIN categories ca
+    ON cc.category_id = ca.id
+WHERE c.status = 1
+GROUP BY c.id
+ORDER BY c.id DESC;
     `;
     const result = await pool.query(query);
     return result.rows;

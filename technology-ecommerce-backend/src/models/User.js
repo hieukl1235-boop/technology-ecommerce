@@ -280,6 +280,7 @@ class User {
       client.release();
     }
   }
+
 }
 
 module.exports = User;

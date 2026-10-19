@@ -4,22 +4,23 @@ const Brand = require("../../models/Brand");
 // LẤY DANH SÁCH THƯƠNG HIỆU
 // ========================================
 
+
 exports.getBrands = async (req, res) => {
-    try {
+  try {
+    const status = req.query.status ?? null;
 
-        const brands = await Brand.getAll();
+    const brands = await Brand.getAll(status);
 
-        res.json(brands);
+    res.json(brands);
+  } catch (error) {
+    console.error(error);
 
-    } catch (error) {
-
-        console.error(error);
-
-        res.status(500).json({
-            message: "Lỗi server"
-        });
-    }
+    res.status(500).json({
+      message: "Lỗi server",
+    });
+  }
 };
+
 
 
 // ========================================

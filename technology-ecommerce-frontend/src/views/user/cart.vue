@@ -1,14 +1,32 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import axios from 'axios'
+import { useRouter } from 'vue-router'
 
 const cartItems = ref([])
 const variantSelected = ref([])
 const token = localStorage.getItem('token')
-import { useRouter } from 'vue-router'
 const router = useRouter()
 
-// Hàm lấy dữ liệu giỏ hàng từ API
+// ============ THÔNG BÁO ============
+const message = ref('')
+const messageType = ref('error')
+let messageTimer = null
+
+const showMessage = (msg, type = 'error') => {
+  message.value = msg
+  messageType.value = type
+  if (messageTimer) clearTimeout(messageTimer)
+  messageTimer = setTimeout(() => {
+    message.value = ''
+  }, 3000)
+}
+
+// ============ MODAL XÓA ============
+const showDeleteModal = ref(false)
+const deleteTarget = ref(null)
+
+// ============ LẤY GIỎ HÀNG ============
 const fetchCart = async () => {
   try {
     const response = await axios.get('http://localhost:3000/api/cart', {
@@ -17,30 +35,30 @@ const fetchCart = async () => {
       },
     })
     cartItems.value = response.data
-    // Bỏ chọn những sản phẩm không còn trong giỏ
     variantSelected.value = variantSelected.value.filter((id) =>
       cartItems.value.some((item) => item.variant_id === id),
     )
   } catch (error) {
     console.error('Lỗi tải giỏ hàng:', error)
+    showMessage('Không thể tải giỏ hàng. Vui lòng thử lại.')
   }
 }
-// tính tổng tiền
+
+// ============ TÍNH TỔNG TIỀN ============
 const totalPrice = computed(() => {
   return cartItems.value.reduce((total, item) => {
     if (variantSelected.value.length > 0 && variantSelected.value.includes(item.variant_id)) {
       const price = item.sale_price ? item.sale_price : item.selling_price
       return total + price * item.quantity
     }
-
     return total
   }, 0)
 })
-// Hàm thay đổi số lượng sản phẩm trong giỏ hàng
+
+// ============ ĐỔI SỐ LƯỢNG ============
 const changeQuantity = async (item) => {
   let quantity = Number(item.quantity)
 
-  // Rỗng, âm, 0, số thập phân → đưa về 1
   if (!Number.isInteger(quantity) || quantity < 1) {
     quantity = 1
     item.quantity = 1
@@ -55,43 +73,52 @@ const changeQuantity = async (item) => {
   } catch (error) {
     console.error('Lỗi cập nhật số lượng:', error)
   } finally {
-    fetchCart() // luôn tải lại để đồng bộ với server
+    fetchCart()
   }
 }
 
-const deleteItem = async (cartId, variantId) => {
-  const isConfirmed = window.confirm('Bạn có chắc chắn muốn xóa sản phẩm này khỏi giỏ hàng không?')
-  if (!isConfirmed) return
+// ============ XÓA SẢN PHẨM ============
+const deleteItem = (cartId, variantId) => {
+  deleteTarget.value = { cartId, variantId }
+  showDeleteModal.value = true
+}
+
+const confirmDelete = async () => {
+  if (!deleteTarget.value) return
+  const { cartId, variantId } = deleteTarget.value
   try {
     await axios.delete('http://localhost:3000/api/cart/removeItem', {
       headers: { Authorization: `Bearer ${token}` },
       data: { cartId, variantId },
     })
-    fetchCart() // tải lại giỏ hàng sau khi xóa
+    showDeleteModal.value = false
+    deleteTarget.value = null
+    fetchCart()
   } catch (error) {
     console.error('Lỗi xóa sản phẩm khỏi giỏ hàng:', error)
+    showMessage('Không thể xóa sản phẩm. Vui lòng thử lại.')
   }
 }
+
+// ============ THANH TOÁN ============
 const handleCheckout = () => {
   if (variantSelected.value.length === 0) {
-    alert('Vui lòng chọn sản phẩm để thanh toán!')
+    showMessage('Vui lòng chọn sản phẩm để thanh toán!')
     return
   }
 
-  // Lọc lấy toàn bộ object thông tin sản phẩm được chọn
-  const checkoutPayload = cartItems.value
-    .filter((item) => variantSelected.value.includes(item.variant_id))
+  const checkoutPayload = cartItems.value.filter((item) =>
+    variantSelected.value.includes(item.variant_id),
+  )
 
-  // Lưu vào đúng khóa 'checkout_items' mà trang checkout đang đọc
   localStorage.setItem('checkout_items', JSON.stringify(checkoutPayload))
-
-  // Chuyển hướng sang trang checkout
   router.push('/checkout')
 }
+
+// ============ HELPERS ============
 const unitPrice = (item) => Number(item.sale_price || item.selling_price)
 const formatMoney = (value) => Number(value).toLocaleString('vi-VN') + ' ₫'
 
-// Nút +/- số lượng
 const stepQuantity = (item, delta) => {
   const next = Number(item.quantity) + delta
   if (next < 1) return
@@ -99,16 +126,20 @@ const stepQuantity = (item, delta) => {
   changeQuantity(item)
 }
 
-// Chọn tất cả
 const allSelected = computed(
   () => cartItems.value.length > 0 && variantSelected.value.length === cartItems.value.length,
 )
+
 const toggleAll = (e) => {
   variantSelected.value = e.target.checked ? cartItems.value.map((item) => item.variant_id) : []
 }
 
 onMounted(() => {
   fetchCart()
+})
+
+onBeforeUnmount(() => {
+  if (messageTimer) clearTimeout(messageTimer)
 })
 </script>
 
@@ -128,6 +159,14 @@ onMounted(() => {
         Giỏ hàng
         <span v-if="cartItems.length" class="cart-count">({{ cartItems.length }} sản phẩm)</span>
       </h1>
+
+      <!-- BANNER CẢNH BÁO -->
+      <transition name="fade">
+        <div v-if="message" class="cart-alert" :class="messageType === 'success' ? 'cart-alert-success' : ''">
+          <span>⚠️ {{ message }}</span>
+          <button type="button" @click="message = ''" aria-label="Đóng">✕</button>
+        </div>
+      </transition>
 
       <!-- GIỎ HÀNG TRỐNG -->
       <div v-if="cartItems.length === 0" class="cart-empty">
@@ -224,6 +263,20 @@ onMounted(() => {
         </aside>
       </div>
     </main>
+
+    <!-- MODAL XÁC NHẬN XÓA -->
+    <transition name="fade">
+      <div v-if="showDeleteModal" class="modal-overlay" @click.self="showDeleteModal = false">
+        <div class="modal-card">
+          <h3>Xóa sản phẩm?</h3>
+          <p>Sản phẩm sẽ được xóa khỏi giỏ hàng của bạn.</p>
+          <div class="modal-actions">
+            <button type="button" class="btn-cancel" @click="showDeleteModal = false">Hủy</button>
+            <button type="button" class="btn-danger" @click="confirmDelete">Xóa</button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -302,6 +355,41 @@ onMounted(() => {
   font-size: 15px;
   font-weight: 500;
   color: var(--muted);
+}
+
+/* Banner cảnh báo */
+.cart-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.cart-alert-success {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #15803d;
+}
+.cart-alert button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.6;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.cart-alert button:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.05);
 }
 
 /* Giỏ trống */
@@ -563,6 +651,77 @@ onMounted(() => {
   font-size: 13px;
   color: var(--muted);
   text-align: center;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 27, 45, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+.modal-card {
+  background: #fff;
+  padding: 24px;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.25);
+}
+.modal-card h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.modal-card p {
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.modal-actions button {
+  padding: 9px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+}
+.btn-cancel {
+  background: #fff;
+  border: 1px solid var(--line) !important;
+  color: var(--muted);
+}
+.btn-cancel:hover {
+  background: var(--bg);
+}
+.btn-danger {
+  background: var(--price);
+  color: #fff;
+}
+.btn-danger:hover {
+  background: #c9231e;
+}
+
+/* Transition fade */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.25s;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 /* Responsive */

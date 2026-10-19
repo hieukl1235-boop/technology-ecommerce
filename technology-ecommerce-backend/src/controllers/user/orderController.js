@@ -2,6 +2,7 @@ const OrderModel = require("../../models/Order");
 const crypto = require("crypto");
 const querystring = require("qs");
 const pool = require("../../config/db");
+const NotificationModel = require("../../models/Notification");
 
 // Hàm tự tạo định dạng thời gian cho VNPay (yyyyMMddHHmmss) chuẩn xác không cần thư viện ngoài
 function getVnpayCreateDate(date = new Date()) {
@@ -31,6 +32,7 @@ const OrderController = {
         recipient_name,
         phone,
         shipping_address,
+        shipping_fee, // 🟢 Lấy shipping_fee từ request gửi lên
         items,
         total_amount,
       } = req.body;
@@ -78,9 +80,10 @@ const OrderController = {
         recipient_name,
         phone,
         shipping_address,
+        shipping_fee: shipping_fee || 0, // 🟢 Truyền vào đây
         total_amount,
-        payment_status: 0, // 0: Chưa thanh toán
-        order_status: 1, // 1: Đang xử lý
+        payment_status: 0,
+        order_status: 1,
       });
 
       // Tạo chi tiết đơn hàng (tự động lấy kèm giá vốn cost_price để tính lợi nhuận sau này)
@@ -257,6 +260,18 @@ const OrderController = {
 
       // Gọi hàm hoàn kho và cập nhật trạng thái đơn hàng đã viết sẵn ở Model
       await OrderModel.cancelAndRestockOrder(orderCode);
+      try {
+        await NotificationModel.createNotification(
+          userId,
+          "Hủy đơn hàng thành công",
+          `Đơn hàng #${orderCode} của bạn đã được hủy và hoàn kho thành công.`,
+          "order",
+          orderCode, // reference_id (có thể là orderCode hoặc id tùy thiết kế bảng orders của bạn)
+        );
+      } catch (notifError) {
+        // Log lỗi thông báo nhưng không làm gián đoạn response trả về cho client
+        console.error("Lỗi tạo thông báo hủy đơn:", notifError);
+      }
 
       return res.status(200).json({
         success: true,
@@ -267,6 +282,34 @@ const OrderController = {
       return res.status(500).json({
         success: false,
         message: error.message || "Lỗi server khi hủy đơn hàng.",
+      });
+    }
+  },
+
+  // Lấy chi tiết một đơn hàng theo mã orderCode
+  async getOrderDetail(req, res) {
+    try {
+      const userId = req.user.id || req.user.userId;
+      const { orderCode } = req.params;
+
+      const order = await OrderModel.getOrderByCodeAndUserId(orderCode, userId);
+
+      if (!order) {
+        return res.status(404).json({
+          success: false,
+          message: "Không tìm thấy đơn hàng hoặc bạn không có quyền xem.",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        order,
+      });
+    } catch (error) {
+      console.error("Lỗi lấy chi tiết đơn hàng:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi server khi tải chi tiết đơn hàng.",
       });
     }
   },

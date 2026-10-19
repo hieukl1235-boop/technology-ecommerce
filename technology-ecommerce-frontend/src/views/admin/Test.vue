@@ -75,7 +75,7 @@
 
                 <td>
                   <span class="rep-name">
-                    {{ supplier.representative_name || '---' }}
+                    {{ supplier.representative || '---' }}
                   </span>
                 </td>
 
@@ -191,7 +191,7 @@
             <div class="col-md-6">
               <label class="form-label tech-label">Người đại diện liên hệ</label>
               <input
-                v-model="form.representative_name"
+                v-model="form.representative"
                 type="text"
                 class="tech-input"
                 placeholder="Ví dụ: Nguyễn Văn Quản Lý"
@@ -307,7 +307,7 @@ const isEdit = ref(false)
 const form = reactive({
   id: null,
   name: '',
-  representative_name: '',
+  representative: '',
   phone: '',
   email: '',
   address: '',
@@ -353,7 +353,7 @@ const openAddForm = () => {
   showForm.value = true
   form.id = null
   form.name = ''
-  form.representative_name = ''
+  form.representative = ''
   form.phone = ''
   form.email = ''
   form.address = ''
@@ -365,7 +365,7 @@ const openEditForm = async (supplier) => {
   showForm.value = true
   form.id = supplier.id
   form.name = supplier.name
-  form.representative_name = supplier.representative_name || ''
+  form.representative = supplier.representative || ''
   form.phone = supplier.phone || ''
   form.email = supplier.email || ''
   form.address = supplier.address || ''
@@ -383,7 +383,7 @@ const saveSupplier = async () => {
     if (!isEdit.value) {
       const response = await axios.post('http://localhost:3000/api/admin/suppliers', {
         name: form.name,
-        representative_name: form.representative_name,
+        representative: form.representative,
         phone: form.phone,
         email: form.email,
         address: form.address,
@@ -397,7 +397,7 @@ const saveSupplier = async () => {
     } else {
       await axios.put(`http://localhost:3000/api/admin/suppliers/${form.id}`, {
         name: form.name,
-        representative_name: form.representative_name,
+        representative: form.representative,
         phone: form.phone,
         email: form.email,
         address: form.address,

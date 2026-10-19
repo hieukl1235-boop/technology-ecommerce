@@ -166,29 +166,33 @@ class PurchaseReceipt {
 
   // Cộng tồn kho biến thể
   // Cập nhật tồn kho và tính lại giá vốn theo phương pháp Bình quân gia quyền
-  static async updateStockAndMovingAverageCost(
-    client,
-    variant_id,
-    new_quantity,
-    new_purchase_price,
-  ) {
-    const result = await client.query(
-      `UPDATE product_variants
-       SET 
-         cost_price = CASE 
-           -- Nếu tồn kho hiện tại + số lượng mới > 0, tính bình quân
-           WHEN (stock_quantity + $1) > 0 
-           THEN ((stock_quantity * cost_price) + ($1 * $2)) / (stock_quantity + $1)
-           ELSE $2 
-         END,
-         stock_quantity = stock_quantity + $1
-       WHERE id = $3
-       RETURNING *`,
-      [new_quantity, new_purchase_price, variant_id],
-    );
+  
+static async updateStockAndMovingAverageCost(
+  client,
+  variant_id,
+  new_quantity,
+  new_purchase_price,
+) {
+  const result = await client.query(
+    `UPDATE product_variants
+     SET
+       cost_price = CASE
+         WHEN (stock_quantity::NUMERIC + $1::NUMERIC) > 0
+         THEN (
+           (stock_quantity::NUMERIC * cost_price::NUMERIC)
+           + ($1::NUMERIC * $2::NUMERIC)
+         ) / (stock_quantity::NUMERIC + $1::NUMERIC)
+         ELSE $2::NUMERIC
+       END,
+       stock_quantity = stock_quantity::BIGINT + $1::BIGINT
+     WHERE id = $3
+     RETURNING *`,
+    [new_quantity, new_purchase_price, variant_id],
+  );
 
-    return result.rows[0];
-  }
+  return result.rows[0];
+}
+
 
   // [LÚC HỦY PHIẾU]: Trừ tồn kho và tính lại giá vốn bình quân từ các phiếu còn sống (status = 1)
   // [LÚC HỦY PHIẾU]: Trừ tồn kho và khôi phục giá vốn về phiếu nhập gần nhất trước đó (còn hiệu lực)
