@@ -91,9 +91,85 @@ class Product {
   // Tìm sản phẩm theo ID
   static async findById(id) {
     const result = await pool.query(
-      `SELECT *
-             FROM products
-             WHERE id = $1`,
+      `SELECT
+            p.id,
+            p.name,
+            p.main_image,
+            p.description,
+            p.status,
+            p.created_at,
+            p.updated_at,
+
+            c.id AS category_id,
+            c.name AS category_name,
+
+            b.id AS brand_id,
+            b.name AS brand_name,
+
+            COALESCE(
+                (
+                    SELECT json_agg(
+                        json_build_object(
+                            'id', pi.id,
+                            'image_url', pi.image_url
+                        )
+                    )
+                    FROM product_images pi
+                    WHERE pi.product_id = p.id
+                ),
+                '[]'
+            ) AS images,
+
+            COALESCE(
+                (
+                    SELECT json_agg(
+                        json_build_object(
+                            'id', pv.id,
+                            'sku', pv.sku,
+                            'selling_price', pv.selling_price,
+                            'sale_price', pv.sale_price,
+                            'stock_quantity', pv.stock_quantity,
+                            'image_url', pv.image_url,
+                            'status', pv.status,
+                            'cost_price', pv.cost_price,
+                            'attributes',
+                            COALESCE(
+                                (
+                                    SELECT json_agg(
+                                        json_build_object(
+                                            'attribute_id', a.id,
+                                            'attribute_name', a.name,
+                                            'attribute_value_id', av.id,
+                                            'attribute_value', av.value
+                                        )
+                                    )
+                                    FROM variant_attributes va
+                                    JOIN attribute_values av
+                                        ON va.attribute_value_id = av.id
+                                    JOIN attributes a
+                                        ON av.attribute_id = a.id
+                                    WHERE va.variant_id = pv.id
+                                ),
+                                '[]'
+                            )
+                        )
+                    )
+                    FROM product_variants pv
+                    WHERE pv.product_id = p.id
+                ),
+                '[]'
+            ) AS variants
+
+        FROM products p
+
+        LEFT JOIN categories c
+            ON p.category_id = c.id
+
+        LEFT JOIN brands b
+            ON p.brand_id = b.id
+        WHERE p.id = $1
+
+        ORDER BY p.id DESC`,
       [id],
     );
 

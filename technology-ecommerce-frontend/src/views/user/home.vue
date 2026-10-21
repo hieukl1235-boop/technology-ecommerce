@@ -228,12 +228,18 @@ const startVoiceSearch = () => {
   recognition.interimResults = false
   recognition.maxAlternatives = 1
 
-  recognition.onstart = () => { isListening.value = true }
+  recognition.onstart = () => {
+    isListening.value = true
+  }
   recognition.onresult = (event) => {
     filters.value.keyword = event.results[0][0].transcript.replace(/[.,]/g, '')
   }
-  recognition.onerror = () => { isListening.value = false }
-  recognition.onend = () => { isListening.value = false }
+  recognition.onerror = () => {
+    isListening.value = false
+  }
+  recognition.onend = () => {
+    isListening.value = false
+  }
   recognition.start()
 }
 
@@ -271,9 +277,31 @@ const handleCheckout = async (variantId, quantity) => {
   }
 }
 
+const recomend = ref([])
+const recomendProduct = ref([])
+
+const userId = JSON.parse(localStorage.getItem('user'))
+
+const getProductRecommend = async () => {
+  try {
+    const res = await axios.get(`http://localhost:5000/api/users/${userId.id}/recommendations`)
+    recomend.value = res.data.recommendations
+    recomendProduct.value = await Promise.all(
+      recomend.value.map(async (item) => {
+        const result = await axios.get(`http://localhost:3000/api/${item.product_id}`)
+
+        return result.data
+      }),
+    )
+  } catch (error) {
+    console.log(error)
+  }
+}
+
 onMounted(() => {
   fetchAllMeta()
   fetchProducts()
+  getProductRecommend()
 })
 
 onBeforeUnmount(() => {
@@ -393,9 +421,7 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
             <h1>{{ currentBanner.title }}</h1>
             <p>{{ currentBanner.description }}</p>
             <div class="hero-actions">
-              <button class="btn-hero" @click="filters.sort = 'price_asc'">
-                🔥 Săn Deal Ngay
-              </button>
+              <button class="btn-hero" @click="filters.sort = 'price_asc'">🔥 Săn Deal Ngay</button>
               <button class="btn-hero-outline" @click="filters.category_id = ''">
                 Khám phá thêm →
               </button>
@@ -415,6 +441,78 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
           </div>
         </div>
       </div>
+      <section v-if="recomendProduct.length > 0" class="recommend-section">
+        <div class="recommend-header">
+          <h2 class="recommend-title">
+            <span class="recommend-icon">✨</span>
+            Gợi ý dành riêng cho bạn
+          </h2>
+          <p class="recommend-sub">Dựa trên lịch sử mua sắm của bạn</p>
+        </div>
+
+        <div class="recommend-grid">
+          <div
+            v-for="p in recomendProduct"
+            :key="p.id"
+            class="recommend-card"
+          >
+            <RouterLink :to="`/product/${p.id}`" class="recommend-img-link">
+              <div class="recommend-img-box">
+                <img
+                  v-if="p.main_image"
+                  :src="`http://localhost:3000/uploads/products/${p.main_image}`"
+                  :alt="p.name"
+                  class="recommend-img"
+                  loading="lazy"
+                />
+                <span v-else class="recommend-no-img">📦</span>
+
+                <span
+                  v-if="p.variants?.[0]?.sale_price &&
+                    Number(p.variants[0].sale_price) < Number(p.variants[0].selling_price)"
+                  class="recommend-badge"
+                >
+                  -{{ Math.round((1 - p.variants[0].sale_price / p.variants[0].selling_price) * 100) }}%
+                </span>
+              </div>
+            </RouterLink>
+
+            <div class="recommend-info">
+              <RouterLink :to="`/product/${p.id}`" class="recommend-name-link">
+                <h3 class="recommend-name" :title="p.name">{{ p.name }}</h3>
+              </RouterLink>
+
+              <div class="recommend-tags">
+                <span class="recommend-tag recommend-tag-cat">{{ p.category_name || 'Khác' }}</span>
+                <span class="recommend-tag recommend-tag-brand">{{ p.brand_name || 'Khác' }}</span>
+              </div>
+
+              <div class="recommend-price" v-if="p.variants && p.variants.length">
+                <span class="recommend-price-sale">
+                  {{
+                    Number(
+                      p.variants[0].sale_price || p.variants[0].selling_price
+                    ).toLocaleString('vi-VN')
+                  }}đ
+                </span>
+                <span
+                  v-if="p.variants[0].sale_price &&
+                    Number(p.variants[0].sale_price) < Number(p.variants[0].selling_price)"
+                  class="recommend-price-origin"
+                >
+                  {{ Number(p.variants[0].selling_price).toLocaleString('vi-VN') }}đ
+                </span>
+              </div>
+
+              <button class="recommend-btn" @click="fetchVariants(p.id)">
+                🛒 Chọn mua
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      
 
       <!-- TRUST BADGES -->
       <div class="trust-badges">
@@ -541,7 +639,12 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
               <h4 class="product-name" :title="p.name">{{ p.name }}</h4>
             </RouterLink>
             <div class="product-rating" v-if="p.avg_review > 0">
-              {{ Number(p.avg_review).toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }}⭐
+              {{
+                Number(p.avg_review).toLocaleString('vi-VN', {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                })
+              }}⭐
               <span>(Đã bán {{ p.count_sell }})</span>
             </div>
             <div class="product-tags">
@@ -550,9 +653,12 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
             </div>
             <div class="product-price">
               <span class="price-sale">
-                {{ p.min_sale_price
-                  ? Number(p.min_sale_price).toLocaleString('vi-VN')
-                  : Number(p.min_selling_price).toLocaleString('vi-VN') }} ₫
+                {{
+                  p.min_sale_price
+                    ? Number(p.min_sale_price).toLocaleString('vi-VN')
+                    : Number(p.min_selling_price).toLocaleString('vi-VN')
+                }}
+                ₫
               </span>
               <span v-if="p.min_sale_price" class="price-original">
                 {{ Number(p.min_selling_price).toLocaleString('vi-VN') }} ₫
@@ -599,9 +705,12 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
                 <p><b>SKU:</b> {{ variant.sku }}</p>
                 <div class="variant-price">
                   <span class="price-sale">
-                    {{ variant.sale_price
-                      ? Number(variant.sale_price).toLocaleString('vi-VN')
-                      : Number(variant.selling_price).toLocaleString('vi-VN') }} ₫
+                    {{
+                      variant.sale_price
+                        ? Number(variant.sale_price).toLocaleString('vi-VN')
+                        : Number(variant.selling_price).toLocaleString('vi-VN')
+                    }}
+                    ₫
                   </span>
                   <span v-if="variant.sale_price" class="price-original">
                     {{ Number(variant.selling_price).toLocaleString('vi-VN') }} ₫
@@ -611,19 +720,20 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
               <div class="variant-actions">
                 <div class="qty-control">
                   <button class="qty-btn" @click="decreaseQty(variant.id)">−</button>
-                  <input
-                    type="number"
-                    v-model="quantities[variant.id]"
-                    min="1"
-                    class="qty-input"
-                  />
+                  <input type="number" v-model="quantities[variant.id]" min="1" class="qty-input" />
                   <button class="qty-btn" @click="increaseQty(variant.id)">+</button>
                 </div>
                 <div class="btn-group">
-                  <button class="btn-add-cart" @click="addToCart(variant.id, quantities[variant.id])">
+                  <button
+                    class="btn-add-cart"
+                    @click="addToCart(variant.id, quantities[variant.id])"
+                  >
                     🛒 Thêm giỏ
                   </button>
-                  <button class="btn-buy-now" @click="handleCheckout(variant.id, quantities[variant.id])">
+                  <button
+                    class="btn-buy-now"
+                    @click="handleCheckout(variant.id, quantities[variant.id])"
+                  >
                     ⚡ Mua ngay
                   </button>
                 </div>
@@ -658,7 +768,9 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
           <p>📧 Email hỗ trợ: <b>cskh@techstore.vn</b></p>
         </div>
       </div>
-      <div class="footer-bottom">&copy; 2026 Bản quyền thuộc về TechStore. All rights reserved.</div>
+      <div class="footer-bottom">
+        &copy; 2026 Bản quyền thuộc về TechStore. All rights reserved.
+      </div>
     </footer>
   </div>
 </template>
@@ -666,7 +778,12 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
 <style scoped>
 /* ============ RESET & BASE ============ */
 .store-layout {
-  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family:
+    'Inter',
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    sans-serif;
   background: #f8fafc;
   color: #1e293b;
   min-height: 100vh;
@@ -697,8 +814,12 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   transition: right 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
   z-index: 9999;
 }
-.toast-show { right: 24px; }
-.toast-error { background: #ef4444; }
+.toast-show {
+  right: 24px;
+}
+.toast-error {
+  background: #ef4444;
+}
 
 /* ============ TOP BAR ============ */
 .top-bar {
@@ -717,7 +838,8 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   gap: 12px;
   flex-wrap: wrap;
 }
-.top-bar-left, .top-bar-right {
+.top-bar-left,
+.top-bar-right {
   display: flex;
   gap: 10px;
   align-items: center;
@@ -728,9 +850,15 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   text-decoration: none;
   transition: color 0.2s;
 }
-.top-bar a:hover { color: #fff; }
-.top-bar b { color: #fff; }
-.divider { color: #334155; }
+.top-bar a:hover {
+  color: #fff;
+}
+.top-bar b {
+  color: #fff;
+}
+.divider {
+  color: #334155;
+}
 
 /* ============ HEADER ============ */
 .store-header {
@@ -763,7 +891,9 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   font-size: 24px;
   letter-spacing: -0.5px;
 }
-.header-logo span { color: #2563eb; }
+.header-logo span {
+  color: #2563eb;
+}
 
 .header-search {
   flex: 1;
@@ -790,7 +920,9 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   color: #1e293b;
   min-width: 0;
 }
-.header-search input::placeholder { color: #94a3b8; }
+.header-search input::placeholder {
+  color: #94a3b8;
+}
 
 .btn-voice {
   padding: 0 14px;
@@ -801,15 +933,24 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   font-size: 16px;
   transition: all 0.2s;
 }
-.btn-voice:hover { color: #2563eb; background: #eff6ff; }
+.btn-voice:hover {
+  color: #2563eb;
+  background: #eff6ff;
+}
 .btn-voice.listening {
   color: #ef4444;
   animation: pulse 1.5s infinite;
 }
 @keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.15); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .btn-search {
@@ -823,7 +964,9 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   transition: all 0.2s;
   white-space: nowrap;
 }
-.btn-search:hover { background: #1d4ed8; }
+.btn-search:hover {
+  background: #1d4ed8;
+}
 
 .header-actions {
   display: flex;
@@ -837,7 +980,11 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   line-height: 1.3;
   text-align: right;
 }
-.user-label { display: block; font-size: 11px; color: #94a3b8; }
+.user-label {
+  display: block;
+  font-size: 11px;
+  color: #94a3b8;
+}
 
 .header-icon-btn {
   position: relative;
@@ -852,7 +999,10 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   text-decoration: none;
   transition: all 0.2s;
 }
-.header-icon-btn:hover { background: #e0e7ff; transform: translateY(-1px); }
+.header-icon-btn:hover {
+  background: #e0e7ff;
+  transform: translateY(-1px);
+}
 
 .cart-badge {
   position: absolute;
@@ -881,8 +1031,13 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   overflow-x: auto;
   scrollbar-width: thin;
 }
-.main-nav-inner::-webkit-scrollbar { height: 4px; }
-.main-nav-inner::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+.main-nav-inner::-webkit-scrollbar {
+  height: 4px;
+}
+.main-nav-inner::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
 
 .nav-cat-btn {
   padding: 12px 16px;
@@ -896,7 +1051,9 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   white-space: nowrap;
   transition: all 0.2s;
 }
-.nav-cat-btn:hover { color: #2563eb; }
+.nav-cat-btn:hover {
+  color: #2563eb;
+}
 .nav-cat-btn.active {
   color: #2563eb;
   border-bottom-color: #2563eb;
@@ -930,7 +1087,12 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
 .hero-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(15, 23, 42, 0.85) 0%, rgba(15, 23, 42, 0.5) 60%, transparent 100%);
+  background: linear-gradient(
+    90deg,
+    rgba(15, 23, 42, 0.85) 0%,
+    rgba(15, 23, 42, 0.5) 60%,
+    transparent 100%
+  );
   z-index: 2;
 }
 
@@ -1034,8 +1196,14 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   border-radius: 999px;
 }
 
-.fade-enter-active, .fade-leave-active { transition: opacity 0.5s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
 
 /* ============ TRUST BADGES ============ */
 .trust-badges {
@@ -1058,7 +1226,9 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   border-color: #2563eb;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
 }
-.trust-icon { font-size: 24px; }
+.trust-icon {
+  font-size: 24px;
+}
 .trust-item b {
   display: block;
   font-size: 13.5px;
@@ -1163,7 +1333,9 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   font-size: 13px;
   color: #64748b;
 }
-.section-header b { color: #2563eb; }
+.section-header b {
+  color: #2563eb;
+}
 
 /* ============ PRODUCT GRID ============ */
 .product-grid {
@@ -1209,7 +1381,9 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   object-fit: contain;
   transition: transform 0.4s;
 }
-.product-card:hover .product-img { transform: scale(1.06); }
+.product-card:hover .product-img {
+  transform: scale(1.06);
+}
 
 .no-img {
   color: #94a3b8;
@@ -1230,7 +1404,9 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
 }
 
-.product-name-link { text-decoration: none; }
+.product-name-link {
+  text-decoration: none;
+}
 
 .product-name {
   font-size: 14.5px;
@@ -1244,7 +1420,9 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   overflow: hidden;
   line-height: 1.4;
 }
-.product-name:hover { color: #2563eb; }
+.product-name:hover {
+  color: #2563eb;
+}
 
 .product-rating {
   font-size: 12px;
@@ -1270,8 +1448,14 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   border-radius: 6px;
   font-weight: 600;
 }
-.tag-category { background: #eff6ff; color: #2563eb; }
-.tag-brand { background: #fffbeb; color: #d97706; }
+.tag-category {
+  background: #eff6ff;
+  color: #2563eb;
+}
+.tag-brand {
+  background: #fffbeb;
+  color: #d97706;
+}
 
 .product-price {
   margin-bottom: 12px;
@@ -1309,7 +1493,9 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
 }
 
 /* ============ SKELETON ============ */
-.skeleton { pointer-events: none; }
+.skeleton {
+  pointer-events: none;
+}
 .skeleton-img {
   width: 100%;
   height: 190px;
@@ -1327,9 +1513,15 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   animation: shimmer 1.4s infinite;
   margin-bottom: 8px;
 }
-.w-80 { width: 80%; }
-.w-60 { width: 60%; }
-.w-40 { width: 40%; }
+.w-80 {
+  width: 80%;
+}
+.w-60 {
+  width: 60%;
+}
+.w-40 {
+  width: 40%;
+}
 .skeleton-btn {
   height: 36px;
   border-radius: 8px;
@@ -1339,8 +1531,12 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   margin-top: 8px;
 }
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* ============ STATE BOX (EMPTY/ERROR) ============ */
@@ -1366,15 +1562,21 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   color: #64748b;
   font-size: 14px;
 }
-.error-state { border-color: #fecaca; background: #fef2f2; }
-.error-state .state-icon { color: #ef4444; }
+.error-state {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+.error-state .state-icon {
+  color: #ef4444;
+}
 
 /* ============ LOAD MORE ============ */
 .load-more {
   text-align: center;
   margin-top: 32px;
 }
-.btn-outline-primary, .btn-outline-secondary {
+.btn-outline-primary,
+.btn-outline-secondary {
   padding: 10px 28px;
   border-radius: 999px;
   font-weight: 700;
@@ -1428,8 +1630,14 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
 }
 
 @keyframes slideUp {
-  from { transform: translateY(30px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .modal-header {
@@ -1486,7 +1694,11 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   margin: 0 auto 12px;
   animation: spin 0.8s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 .variant-list {
   display: flex;
@@ -1520,13 +1732,21 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   flex-shrink: 0;
 }
 
-.variant-details { flex: 1; min-width: 0; }
+.variant-details {
+  flex: 1;
+  min-width: 0;
+}
 .variant-details p {
   margin: 0 0 4px 0;
   color: #1e293b;
   font-size: 13px;
 }
-.variant-price { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.variant-price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 
 .variant-actions {
   display: flex;
@@ -1556,7 +1776,10 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   cursor: pointer;
   transition: all 0.15s;
 }
-.qty-btn:hover { background: #eff6ff; color: #2563eb; }
+.qty-btn:hover {
+  background: #eff6ff;
+  color: #2563eb;
+}
 .qty-input {
   width: 42px;
   height: 30px;
@@ -1643,14 +1866,21 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   font-weight: 700;
   letter-spacing: 0.5px;
 }
-.footer-col p, .footer-col a {
+.footer-col p,
+.footer-col a {
   color: #94a3b8;
   font-size: 13px;
   text-decoration: none;
   line-height: 1.8;
 }
-.footer-col a:hover { color: #fff; }
-.footer-col ul { list-style: none; padding: 0; margin: 0; }
+.footer-col a:hover {
+  color: #fff;
+}
+.footer-col ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
 
 .footer-bottom {
   text-align: center;
@@ -1659,6 +1889,199 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
   font-size: 12px;
   color: #64748b;
   border-top: 1px solid #1e293b;
+}
+/* ============ SẢN PHẨM GỢI Ý ============ */
+.recommend-section {
+  margin-bottom: 28px;
+  padding: 20px;
+  background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
+  border: 1px solid #bfdbfe;
+  border-radius: 16px;
+}
+
+.recommend-header {
+  margin-bottom: 16px;
+}
+
+.recommend-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px 0;
+  font-size: 19px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.3px;
+}
+
+.recommend-icon {
+  font-size: 20px;
+}
+
+.recommend-sub {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.recommend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.recommend-card {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.25s;
+}
+
+.recommend-card:hover {
+  transform: translateY(-4px);
+  border-color: #2563eb;
+  box-shadow: 0 12px 24px -8px rgba(37, 99, 235, 0.2);
+}
+
+.recommend-img-link {
+  display: block;
+  text-decoration: none;
+}
+
+.recommend-img-box {
+  position: relative;
+  width: 100%;
+  height: 170px;
+  background: #f8fafc;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recommend-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: transform 0.4s;
+}
+
+.recommend-card:hover .recommend-img {
+  transform: scale(1.06);
+}
+
+.recommend-no-img {
+  font-size: 32px;
+  color: #cbd5e1;
+}
+
+.recommend-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 8px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+}
+
+.recommend-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px 14px;
+  flex: 1;
+}
+
+.recommend-name-link {
+  text-decoration: none;
+}
+
+.recommend-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.4;
+  height: 40px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.recommend-card:hover .recommend-name {
+  color: #2563eb;
+}
+
+.recommend-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.recommend-tag {
+  font-size: 10.5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.recommend-tag-cat {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.recommend-tag-brand {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.recommend-price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+
+.recommend-price-sale {
+  font-size: 16px;
+  font-weight: 800;
+  color: #dc2626;
+}
+
+.recommend-price-origin {
+  font-size: 12px;
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+.recommend-btn {
+  width: 100%;
+  padding: 9px;
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.recommend-btn:hover {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
 }
 
 /* ============ RESPONSIVE ============ */
@@ -1672,40 +2095,93 @@ const user = JSON.parse(localStorage.getItem('user') || '{}')
     flex-basis: 100%;
     max-width: 100%;
   }
-  .header-user { display: none; }
-  .hero-banner { height: 280px; }
-  .hero-content { padding: 0 32px; }
-  .hero-content h1 { font-size: 26px; }
+  .header-user {
+    display: none;
+  }
+  .hero-banner {
+    height: 280px;
+  }
+  .hero-content {
+    padding: 0 32px;
+  }
+  .hero-content h1 {
+    font-size: 26px;
+  }
 }
 
 @media (max-width: 640px) {
-  .top-bar-left { display: none; }
-  .top-bar-inner { justify-content: center; }
-  .header-container-inner { gap: 10px; }
-  .header-logo h2 { font-size: 20px; }
-  .hero-banner { height: 240px; }
-  .hero-content { padding: 0 20px; }
-  .hero-content h1 { font-size: 20px; }
-  .hero-content p { font-size: 13px; }
-  .hero-actions { flex-direction: column; align-items: stretch; }
-  .btn-hero, .btn-hero-outline { width: 100%; text-align: center; }
-  .main-content { padding: 16px 12px; }
+  .top-bar-left {
+    display: none;
+  }
+  .top-bar-inner {
+    justify-content: center;
+  }
+  .header-container-inner {
+    gap: 10px;
+  }
+  .header-logo h2 {
+    font-size: 20px;
+  }
+  .hero-banner {
+    height: 240px;
+  }
+  .hero-content {
+    padding: 0 20px;
+  }
+  .hero-content h1 {
+    font-size: 20px;
+  }
+  .hero-content p {
+    font-size: 13px;
+  }
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .btn-hero,
+  .btn-hero-outline {
+    width: 100%;
+    text-align: center;
+  }
+  .main-content {
+    padding: 16px 12px;
+  }
   .product-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;
   }
-  .product-card { padding: 10px; }
-  .product-img-wrapper { height: 140px; }
-  .product-name { font-size: 13px; height: 36px; }
-  .price-sale { font-size: 15px; }
+  .product-card {
+    padding: 10px;
+  }
+  .product-img-wrapper {
+    height: 140px;
+  }
+  .product-name {
+    font-size: 13px;
+    height: 36px;
+  }
+  .price-sale {
+    font-size: 15px;
+  }
   .variant-item {
     flex-direction: column;
     align-items: stretch;
   }
-  .variant-img { align-self: center; }
-  .variant-actions { align-items: stretch; }
-  .btn-group { width: 100%; }
-  .btn-add-cart, .btn-buy-now { flex: 1; }
-  .trust-badges { grid-template-columns: 1fr 1fr; }
+  .variant-img {
+    align-self: center;
+  }
+  .variant-actions {
+    align-items: stretch;
+  }
+  .btn-group {
+    width: 100%;
+  }
+  .btn-add-cart,
+  .btn-buy-now {
+    flex: 1;
+  }
+  .trust-badges {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 </style>

@@ -12,7 +12,5 @@ router.patch(
   upload.single("proof_image"),
   OrderController.completeOrder,
 );
-
 router.patch("/:orderCode/fail", authMiddleware.authenticate, OrderController.failOrder);
-
 module.exports = router;

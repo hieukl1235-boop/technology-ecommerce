@@ -64,3 +64,16 @@ exports.filterProducts = async (req, res) => {
     });
   }
 };
+
+exports.getProductById = async (req, res) =>
+{
+  try{
+    const id = req.params.id
+    const result = await ProductModel.findById(id);
+    res.status(200).json(result)
+  }
+  catch(error)
+  {
+    console.log("lỗi là 1: ", error.message)
+  }
+};

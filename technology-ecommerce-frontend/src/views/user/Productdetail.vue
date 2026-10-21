@@ -39,7 +39,37 @@ const showToast = (msg, type = 'success') => {
 const showDeleteModal = ref(false)
 const deleteTarget = ref(null)
 
-// --- GỌI API ---
+// --- SẢN PHẨM ĐỀ XUẤT ---
+const recommend = ref([])
+const productRecommend = ref([])
+const collaborativeRecommend = ref([])
+const collaborativeProducts = ref([])
+const getCollaborativeRecommend = async () => {
+  try {
+    const res = await axios.get(
+      `http://localhost:5000/api/products/${route.params.id}/collaborative-recommendations`,
+    )
+
+    collaborativeRecommend.value = res.data.recommendations || []
+
+    // Lấy thông tin chi tiết từng sản phẩm để giao diện có dữ liệu hiển thị
+    collaborativeProducts.value = await Promise.all(
+      collaborativeRecommend.value.map(async (item) => {
+        const detailRes = await axios.get(`http://localhost:3000/api/${item.product_id}`)
+
+        return {
+          ...detailRes.data,
+          similarity: item.similarity,
+        }
+      }),
+    )
+  } catch (error) {
+    console.error('Lỗi tải gợi ý theo lịch sử mua:', error.message)
+    collaborativeRecommend.value = []
+    collaborativeProducts.value = []
+  }
+}
+// --- GỌI API SẢN PHẨM ---
 const fetchProduct = async () => {
   loading.value = true
   product.value = null
@@ -65,6 +95,48 @@ const fetchReviews = async () => {
     summary.value = res.data.summary
   } catch (error) {
     console.error('Lỗi tải đánh giá:', error)
+  }
+}
+
+// --- LẤY SẢN PHẨM ĐỀ XUẤT ---
+const getRecommend = async () => {
+  try {
+    const res = await axios.get(
+      `http://localhost:5000/api/products/${route.params.id}/recommendations`,
+    )
+    recommend.value = res.data.recommendations || []
+    await getProductRecommend()
+  } catch (error) {
+    console.error('Lỗi gọi API recommendations:', error.message)
+    // Fallback: lấy sản phẩm cùng danh mục từ API trang chủ
+    try {
+      if (!product.value?.category_id) return
+      const res = await axios.get(`${API}/`, {
+        params: { category_id: product.value.category_id, limit: 8 },
+      })
+      const list = Array.isArray(res.data) ? res.data : res.data.data || []
+      productRecommend.value = list
+        .filter((p) => Number(p.id) !== Number(route.params.id))
+        .slice(0, 4)
+    } catch (fallbackErr) {
+      console.error('Fallback cũng lỗi:', fallbackErr.message)
+    }
+  }
+}
+
+const getProductRecommend = async () => {
+  if (recommend.value.length === 0) return
+
+  try {
+    const results = await Promise.all(
+      recommend.value.map(async (item) => {
+        const res = await axios.get(`http://localhost:3000/api/${item.product_id}`)
+        return res.data
+      }),
+    )
+    productRecommend.value = results
+  } catch (error) {
+    console.error('Lỗi lấy dữ liệu sản phẩm:', error.message)
   }
 }
 
@@ -222,6 +294,8 @@ const confirmDeleteReview = async () => {
 onMounted(() => {
   fetchProduct()
   fetchReviews()
+  getRecommend()
+  getCollaborativeRecommend()
 })
 
 onBeforeUnmount(() => {
@@ -232,9 +306,17 @@ watch(
   () => route.params.id,
   (id) => {
     if (!id) return
+
     ratingFilter.value = 0
+    recommend.value = []
+    productRecommend.value = []
+    collaborativeRecommend.value = []
+    collaborativeProducts.value = []
+
     fetchProduct()
     fetchReviews()
+    getRecommend()
+    getCollaborativeRecommend()
   },
 )
 </script>
@@ -247,17 +329,23 @@ watch(
         <RouterLink to="/home" class="brand" aria-label="TechStore - Trang chủ">
           Tech<span>Store</span>
         </RouterLink>
-        <RouterLink to="/cart" class="cart-link">
-          🛒 Giỏ hàng
-        </RouterLink>
+        <RouterLink to="/cart" class="cart-link"> 🛒 Giỏ hàng </RouterLink>
       </div>
     </header>
 
     <main class="pd-main">
       <RouterLink to="/home" class="btn-back">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-             fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <line x1="19" y1="12" x2="5" y2="12"></line>
           <polyline points="12 19 5 12 12 5"></polyline>
         </svg>
@@ -285,7 +373,6 @@ watch(
             <div class="main-image-box">
               <img v-if="activeImage" :src="activeImage" :alt="product.name" class="main-image" />
               <div v-else class="no-image">Chưa có ảnh</div>
-
               <span v-if="discountPercent > 0" class="discount-badge">
                 -{{ discountPercent }}%
               </span>
@@ -308,7 +395,8 @@ watch(
           <!-- Info -->
           <div class="info">
             <p class="breadcrumb">
-              {{ product.category_name }}<span v-if="product.brand_name"> • {{ product.brand_name }}</span>
+              {{ product.category_name
+              }}<span v-if="product.brand_name"> • {{ product.brand_name }}</span>
             </p>
 
             <h1 class="pd-title">{{ product.name }}</h1>
@@ -364,7 +452,9 @@ watch(
                   class="qty-btn"
                   :disabled="quantity <= 1 || isOutOfStock(selectedVariant)"
                   @click="stepQuantity(-1)"
-                >−</button>
+                >
+                  −
+                </button>
                 <input
                   v-model.number="quantity"
                   type="number"
@@ -379,7 +469,9 @@ watch(
                   class="qty-btn"
                   :disabled="quantity >= maxQuantity || isOutOfStock(selectedVariant)"
                   @click="stepQuantity(1)"
-                >+</button>
+                >
+                  +
+                </button>
               </div>
             </div>
 
@@ -390,9 +482,17 @@ watch(
                 :disabled="!selectedVariant || isOutOfStock(selectedVariant)"
                 @click="addToCart"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                     fill="none" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <circle cx="9" cy="21" r="1"></circle>
                   <circle cx="20" cy="21" r="1"></circle>
                   <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
@@ -404,9 +504,17 @@ watch(
                 :disabled="!selectedVariant || isOutOfStock(selectedVariant)"
                 @click="buyNow"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                     fill="none" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
                 </svg>
                 <span>Mua ngay</span>
@@ -455,22 +563,15 @@ watch(
           </div>
 
           <template v-else>
-            <!-- Overview -->
             <div class="review-overview">
               <div class="overview-score">
-                <div class="score-big">
-                  {{ summary.average }}<span class="score-max">/5</span>
-                </div>
+                <div class="score-big">{{ summary.average }}<span class="score-max">/5</span></div>
                 <div class="star-text star-big">{{ stars(Math.round(summary.average)) }}</div>
                 <div class="score-total">{{ summary.total }} đánh giá</div>
               </div>
 
               <div class="overview-bars">
-                <div
-                  v-for="n in [5, 4, 3, 2, 1]"
-                  :key="n"
-                  class="bar-row"
-                >
+                <div v-for="n in [5, 4, 3, 2, 1]" :key="n" class="bar-row">
                   <span class="bar-label">{{ n }} ★</span>
                   <div class="bar-track">
                     <div
@@ -483,7 +584,6 @@ watch(
               </div>
             </div>
 
-            <!-- Filter -->
             <div class="filter-row">
               <button
                 class="filter-btn"
@@ -504,7 +604,6 @@ watch(
               </button>
             </div>
 
-            <!-- List -->
             <div class="review-list">
               <article v-for="r in filteredReviews" :key="r.id" class="review-item">
                 <div class="review-head">
@@ -527,11 +626,21 @@ watch(
                     @click="deleteReview(r)"
                     title="Xóa đánh giá"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                         fill="none" stroke="currentColor" stroke-width="2"
-                         stroke-linecap="round" stroke-linejoin="round">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
                       <polyline points="3 6 5 6 21 6"></polyline>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      <path
+                        d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                      ></path>
                     </svg>
                   </button>
                 </div>
@@ -562,6 +671,118 @@ watch(
               Không có đánh giá nào ở mức sao này.
             </p>
           </template>
+        </section>
+
+        <!-- ========== SẢN PHẨM ĐỀ XUẤT ========== -->
+        <section class="section-block" v-if="productRecommend.length > 0">
+          <h2 class="section-title">
+            <span class="section-icon">🎯</span>
+            Sản phẩm tương tự
+          </h2>
+
+          <div class="related-grid">
+            <RouterLink
+              v-for="rp in productRecommend"
+              :key="rp.id"
+              :to="`/product/${rp.id}`"
+              class="related-card"
+            >
+              <div class="related-img-box">
+                <img
+                  v-if="rp.main_image"
+                  :src="`${UPLOADS}/products/${rp.main_image}`"
+                  :alt="rp.name"
+                  class="related-img"
+                  loading="lazy"
+                />
+                <div v-else class="related-img related-img-empty">📦</div>
+              </div>
+
+              <div class="related-info">
+                <h3 class="related-name" :title="rp.name">{{ rp.name }}</h3>
+
+                <div class="related-price" v-if="rp.variants && rp.variants.length">
+                  <template
+                    v-if="
+                      rp.variants[0].sale_price &&
+                      Number(rp.variants[0].sale_price) < Number(rp.variants[0].selling_price)
+                    "
+                  >
+                    <span class="related-price-sale">
+                      {{ Number(rp.variants[0].sale_price).toLocaleString('vi-VN') }}đ
+                    </span>
+                    <span class="related-price-origin">
+                      {{ Number(rp.variants[0].selling_price).toLocaleString('vi-VN') }}đ
+                    </span>
+                  </template>
+                  <template v-else>
+                    <span class="related-price-sale">
+                      {{ Number(rp.variants[0].selling_price).toLocaleString('vi-VN') }}đ
+                    </span>
+                  </template>
+                </div>
+
+                <span v-if="rp.brand_name" class="related-brand">
+                  {{ rp.brand_name }}
+                </span>
+              </div>
+            </RouterLink>
+          </div>
+        </section>
+        <section class="section-block" v-if="productRecommend.length > 0">
+          <h2 class="section-title">
+            <span class="section-icon">🎯</span>
+            Khách hàng mua sản phẩm này cũng thường chọn
+          </h2>
+
+          <div class="related-grid">
+            <RouterLink
+              v-for="rp in collaborativeProducts"
+              :key="rp.id"
+              :to="`/product/${rp.id}`"
+              class="related-card"
+            >
+              <div class="related-img-box">
+                <img
+                  v-if="rp.main_image"
+                  :src="`${UPLOADS}/products/${rp.main_image}`"
+                  :alt="rp.name"
+                  class="related-img"
+                  loading="lazy"
+                />
+                <div v-else class="related-img related-img-empty">📦</div>
+              </div>
+
+              <div class="related-info">
+                <h3 class="related-name" :title="rp.name">{{ rp.name }}</h3>
+
+                <div class="related-price" v-if="rp.variants && rp.variants.length">
+                  <template
+                    v-if="
+                      rp.variants[0].sale_price &&
+                      Number(rp.variants[0].sale_price) < Number(rp.variants[0].selling_price)
+                    "
+                  >
+                    <span class="related-price-sale">
+                      {{ Number(rp.variants[0].sale_price).toLocaleString('vi-VN') }}đ
+                    </span>
+                    <span class="related-price-origin">
+                      {{ Number(rp.variants[0].selling_price).toLocaleString('vi-VN') }}đ
+                    </span>
+                  </template>
+                  <template v-else>
+                    <span class="related-price-sale">
+                      {{ Number(rp.variants[0].selling_price).toLocaleString('vi-VN') }}đ
+                    </span>
+                  </template>
+                </div>
+
+                <span v-if="rp.brand_name" class="related-brand">
+                  {{ rp.brand_name }}
+                </span>
+              </div>
+            </RouterLink>
+          </div>
         </section>
       </template>
     </main>
@@ -622,7 +843,9 @@ watch(
 }
 .pd-page *,
 .pd-page *::before,
-.pd-page *::after { box-sizing: border-box; }
+.pd-page *::after {
+  box-sizing: border-box;
+}
 
 /* Header */
 .pd-top {
@@ -647,7 +870,9 @@ watch(
   color: var(--ink);
   text-decoration: none;
 }
-.brand span { color: var(--brand); }
+.brand span {
+  color: var(--brand);
+}
 .cart-link {
   padding: 8px 16px;
   background: #f0f9ff;
@@ -706,19 +931,41 @@ watch(
   align-items: center;
   gap: 10px;
 }
-.state-icon { font-size: 48px; opacity: 0.5; }
-.state-title { margin: 0; font-weight: 700; color: var(--ink); font-size: 16px; }
-.state-sub { margin: 0; font-size: 14px; color: var(--muted); max-width: 340px; }
-.state-box p { margin: 0; color: var(--muted); font-size: 14px; }
+.state-icon {
+  font-size: 48px;
+  opacity: 0.5;
+}
+.state-title {
+  margin: 0;
+  font-weight: 700;
+  color: var(--ink);
+  font-size: 16px;
+}
+.state-sub {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+  max-width: 340px;
+}
+.state-box p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
 
 .spinner {
-  width: 36px; height: 36px;
+  width: 36px;
+  height: 36px;
   border: 3px solid var(--line);
   border-top-color: var(--brand);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* Top section */
 .pd-top-section {
@@ -733,7 +980,9 @@ watch(
 }
 
 /* Gallery */
-.gallery { min-width: 0; }
+.gallery {
+  min-width: 0;
+}
 .main-image-box {
   position: relative;
   aspect-ratio: 1 / 1;
@@ -752,8 +1001,13 @@ watch(
   object-fit: contain;
   transition: transform 0.4s;
 }
-.main-image-box:hover .main-image { transform: scale(1.03); }
-.no-image { color: var(--muted); font-size: 14px; }
+.main-image-box:hover .main-image {
+  transform: scale(1.03);
+}
+.no-image {
+  color: var(--muted);
+  font-size: 14px;
+}
 
 .discount-badge {
   position: absolute;
@@ -788,11 +1042,19 @@ watch(
   border-color: var(--brand);
   box-shadow: 0 0 0 3px rgba(10, 108, 255, 0.15);
 }
-.thumb:hover:not(.active) { border-color: #94a3b8; }
-.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.thumb:hover:not(.active) {
+  border-color: #94a3b8;
+}
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
 /* Info */
-.info { min-width: 0; }
+.info {
+  min-width: 0;
+}
 
 .breadcrumb {
   margin: 0 0 10px;
@@ -816,15 +1078,26 @@ watch(
   margin-bottom: 16px;
   flex-wrap: wrap;
 }
-.star-text { color: var(--star); letter-spacing: 1.5px; }
-.star-big { font-size: 22px; }
-.rating-row b { color: var(--ink); font-size: 15px; }
+.star-text {
+  color: var(--star);
+  letter-spacing: 1.5px;
+}
+.star-big {
+  font-size: 22px;
+}
+.rating-row b {
+  color: var(--ink);
+  font-size: 15px;
+}
 .rating-link {
   font-size: 13px;
   color: var(--muted);
   text-decoration: none;
 }
-.rating-link:hover { color: var(--brand); text-decoration: underline; }
+.rating-link:hover {
+  color: var(--brand);
+  text-decoration: underline;
+}
 .no-rating {
   margin: 0 0 16px;
   font-size: 13px;
@@ -856,7 +1129,9 @@ watch(
 }
 
 /* Variants */
-.variant-section { margin-bottom: 20px; }
+.variant-section {
+  margin-bottom: 20px;
+}
 .section-label {
   margin: 0 0 10px;
   font-size: 13px;
@@ -907,7 +1182,9 @@ watch(
   color: var(--price);
   font-weight: 700;
 }
-.variant-btn.active .variant-sold-out { color: #fecaca; }
+.variant-btn.active .variant-sold-out {
+  color: #fecaca;
+}
 
 .variant-meta {
   margin: 10px 0 0;
@@ -928,7 +1205,9 @@ watch(
   gap: 14px;
   margin-bottom: 20px;
 }
-.qty-block .section-label { margin: 0; }
+.qty-block .section-label {
+  margin: 0;
+}
 
 .qty-control {
   display: flex;
@@ -949,8 +1228,14 @@ watch(
   transition: background 0.15s;
   font-family: inherit;
 }
-.qty-btn:hover:not(:disabled) { background: #f0f9ff; color: var(--brand); }
-.qty-btn:disabled { color: #cbd5e1; cursor: not-allowed; }
+.qty-btn:hover:not(:disabled) {
+  background: #f0f9ff;
+  color: var(--brand);
+}
+.qty-btn:disabled {
+  color: #cbd5e1;
+  cursor: not-allowed;
+}
 
 .qty-input {
   width: 58px;
@@ -971,7 +1256,9 @@ watch(
   -webkit-appearance: none;
   margin: 0;
 }
-.qty-input:focus { background: #f0f9ff; }
+.qty-input:focus {
+  background: #f0f9ff;
+}
 
 /* Actions */
 .action-buttons {
@@ -1043,7 +1330,9 @@ watch(
   color: var(--muted);
   font-weight: 500;
 }
-.trust-item span:first-child { font-size: 16px; }
+.trust-item span:first-child {
+  font-size: 16px;
+}
 
 /* Sections */
 .section-block {
@@ -1064,7 +1353,9 @@ watch(
   color: var(--ink);
   letter-spacing: -0.01em;
 }
-.section-icon { font-size: 20px; }
+.section-icon {
+  font-size: 20px;
+}
 
 .description {
   white-space: pre-line;
@@ -1122,7 +1413,11 @@ watch(
   font-weight: 500;
 }
 
-.overview-bars { display: flex; flex-direction: column; gap: 8px; }
+.overview-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 .bar-row {
   display: flex;
   align-items: center;
@@ -1198,8 +1493,13 @@ watch(
   padding: 20px 0;
   border-bottom: 1px solid #f1f5f9;
 }
-.review-item:last-child { border-bottom: none; padding-bottom: 0; }
-.review-item:first-child { padding-top: 0; }
+.review-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.review-item:first-child {
+  padding-top: 0;
+}
 
 .review-head {
   display: flex;
@@ -1304,7 +1604,11 @@ watch(
   border-color: var(--brand);
   box-shadow: 0 4px 12px rgba(10, 108, 255, 0.15);
 }
-.review-img img { width: 100%; height: 100%; object-fit: cover; }
+.review-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
 .review-reply {
   background: #f0f9ff;
@@ -1335,7 +1639,11 @@ watch(
   border: 1px dashed var(--line);
   border-radius: 14px;
 }
-.review-empty-icon { font-size: 48px; opacity: 0.5; margin-bottom: 10px; }
+.review-empty-icon {
+  font-size: 48px;
+  opacity: 0.5;
+  margin-bottom: 10px;
+}
 .review-empty-title {
   margin: 0 0 6px;
   font-weight: 700;
@@ -1353,6 +1661,101 @@ watch(
   padding: 40px 20px;
   color: var(--muted);
   font-size: 14px;
+}
+
+/* ============ RELATED PRODUCTS ============ */
+.related-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.related-card {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.25s;
+}
+.related-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--brand);
+  box-shadow: 0 12px 24px -8px rgba(10, 108, 255, 0.15);
+}
+
+.related-img-box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #f8fafc;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.related-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: transform 0.4s;
+}
+.related-card:hover .related-img {
+  transform: scale(1.05);
+}
+.related-img-empty {
+  color: #cbd5e1;
+  font-size: 32px;
+}
+
+.related-info {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+.related-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.4;
+  height: 40px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.related-card:hover .related-name {
+  color: var(--brand);
+}
+
+.related-price {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+.related-price-sale {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--price);
+}
+.related-price-origin {
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.related-brand {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-weight: 600;
+  margin-top: 2px;
 }
 
 /* Lightbox */
@@ -1419,10 +1822,19 @@ watch(
   animation: slideUp 0.25s ease-out;
 }
 @keyframes slideUp {
-  from { transform: translateY(16px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
-.confirm-icon { font-size: 42px; margin-bottom: 8px; }
+.confirm-icon {
+  font-size: 42px;
+  margin-bottom: 8px;
+}
 .modal-card h3 {
   margin: 0 0 10px;
   font-size: 18px;
@@ -1435,8 +1847,13 @@ watch(
   color: var(--muted);
   line-height: 1.5;
 }
-.modal-actions { display: flex; gap: 10px; }
-.modal-actions button { flex: 1; }
+.modal-actions {
+  display: flex;
+  gap: 10px;
+}
+.modal-actions button {
+  flex: 1;
+}
 
 .btn-cancel-tech {
   padding: 11px 20px;
@@ -1450,7 +1867,9 @@ watch(
   font-family: inherit;
   transition: all 0.2s;
 }
-.btn-cancel-tech:hover { background: var(--bg); }
+.btn-cancel-tech:hover {
+  background: var(--bg);
+}
 
 .btn-danger-tech {
   padding: 11px 20px;
@@ -1487,15 +1906,29 @@ watch(
   font-family: inherit;
   box-shadow: 0 10px 25px -8px rgba(0, 0, 0, 0.3);
 }
-.toast-success { background: #10b981; }
-.toast-error { background: #ef4444; }
+.toast-success {
+  background: #10b981;
+}
+.toast-error {
+  background: #ef4444;
+}
 
 /* Transition */
-.fade-enter-active, .fade-leave-active { transition: opacity 0.25s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.25s;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
 
-.slide-fade-enter-active, .slide-fade-leave-active { transition: all 0.3s ease; }
-.slide-fade-enter-from, .slide-fade-leave-to {
+.slide-fade-enter-active,
+.slide-fade-leave-active {
+  transition: all 0.3s ease;
+}
+.slide-fade-enter-from,
+.slide-fade-leave-to {
   opacity: 0;
   transform: translateY(20px);
 }
@@ -1517,20 +1950,51 @@ watch(
     border-right: none;
     border-bottom: 1px solid var(--line);
   }
+  .related-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 640px) {
-  .pd-main { padding: 16px 12px 40px; }
-  .pd-title { font-size: 20px; }
-  .price-sale { font-size: 24px; }
-  .action-buttons { grid-template-columns: 1fr; }
-  .section-block { padding: 20px 18px; }
-  .section-title { font-size: 16px; }
-  .review-item { padding: 16px 0; }
+  .pd-main {
+    padding: 16px 12px 40px;
+  }
+  .pd-title {
+    font-size: 20px;
+  }
+  .price-sale {
+    font-size: 24px;
+  }
+  .action-buttons {
+    grid-template-columns: 1fr;
+  }
+  .section-block {
+    padding: 20px 18px;
+  }
+  .section-title {
+    font-size: 16px;
+  }
+  .review-item {
+    padding: 16px 0;
+  }
   .toast-box {
     left: 16px;
     right: 16px;
     justify-content: center;
+  }
+  .related-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .related-info {
+    padding: 10px 10px 12px;
+  }
+  .related-name {
+    font-size: 13px;
+    height: 36px;
+  }
+  .related-price-sale {
+    font-size: 14px;
   }
 }
 </style>
