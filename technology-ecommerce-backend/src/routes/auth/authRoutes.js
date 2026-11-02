@@ -5,7 +5,11 @@ const router = express.Router();
 const authController = require("../../controllers/auth/authController");
 
 router.post("/register", authController.register);
+router.post("/verify-registration-otp", authController.verifyRegistrationOtp);
 router.post("/login", authController.login);
 router.post("/google", authController.googleLogin);
-
+// Quên mật khẩu
+router.post("/forgot-password", authController.forgotPassword);
+router.post("/verify-reset-otp", authController.verifyResetOtp);
+router.post("/reset-password", authController.resetPassword);
 module.exports = router;

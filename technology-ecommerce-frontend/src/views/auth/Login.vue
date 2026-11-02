@@ -113,7 +113,11 @@
             </button>
           </div>
         </div>
-
+       <div class="text-end mb-3">
+          <router-link to="/forgot-password" class="text-decoration-none">
+            Quên mật khẩu?
+          </router-link>
+        </div>
         <!-- Nút submit đổi màu theo vai trò -->
         <button 
           type="submit" 

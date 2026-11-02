@@ -243,20 +243,47 @@ class Product {
 
   // Khóa / mở khóa sản phẩm
   static async updateStatus(id) {
-    const result = await pool.query(
-      `UPDATE products
-             SET status =
-                CASE
-                    WHEN status = 1 THEN 0
-                    ELSE 1
-                END,
-                updated_at = CURRENT_TIMESTAMP
-             WHERE id = $1
-             RETURNING *`,
-      [id],
-    );
+    const client = await pool.connect();
 
-    return result.rows[0];
+    try {
+      await client.query("BEGIN");
+
+      // 1. Đảo trạng thái sản phẩm
+      const result = await client.query(
+        `UPDATE products
+       SET status = CASE
+           WHEN status = 1 THEN 0
+           ELSE 1
+       END,
+       updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+        [id],
+      );
+
+      // Không tìm thấy sản phẩm
+      if (result.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+
+      // 2. Cập nhật trạng thái tất cả biến thể
+      await client.query(
+        `UPDATE product_variants
+       SET status = $1
+       WHERE product_id = $2`,
+        [result.rows[0].status, id],
+      );
+
+      await client.query("COMMIT");
+
+      return result.rows[0];
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   // DÀNH CHO NGƯỜI DÙNG
@@ -435,14 +462,18 @@ class Product {
         ) as count_review,
 
         -- 🟢 3. Subquery tính tổng số lượng sản phẩm đã bán (cộng dồn quantity trong order_details)
-        COALESCE(
-            (
-                SELECT SUM(od.quantity)
-                FROM order_details od
-                JOIN product_variants pv_od ON od.variant_id = pv_od.id
-                WHERE pv_od.product_id = p.id
-            ), 0
-        ) as count_sell
+   COALESCE(
+    (
+        SELECT SUM(od.quantity)
+        FROM order_details od
+        JOIN product_variants pv_od
+            ON od.variant_id = pv_od.id
+        JOIN orders o
+            ON od.order_code = o.order_code
+        WHERE pv_od.product_id = p.id
+          AND o.order_status = 4
+    ), 0
+) AS count_sell
 
     FROM products p
     

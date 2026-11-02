@@ -190,7 +190,8 @@ const OrderModel = {
       await client.query("BEGIN");
 
       // 1. Lấy thông tin đơn hàng hiện tại
-      const checkQuery = `SELECT order_status, payment_status FROM orders WHERE order_code = $1`;
+      const checkQuery = `SELECT order_status, coupon_id,payment_status FROM orders WHERE order_code = $1   FOR UPDATE
+`;
       const checkResult = await client.query(checkQuery, [orderCode]);
       const order = checkResult.rows[0];
 
@@ -201,6 +202,22 @@ const OrderModel = {
       // Cho phép hủy ở trạng thái 1, 2 (chưa giao) hoặc 6 (giao thất bại cần hoàn kho)
       if (![1, 2, 6].includes(order.order_status)) {
         throw new Error("Đơn hàng không ở trạng thái cho phép hủy.");
+      }
+
+      if (order.coupon_id) {
+        const coupon = `
+    UPDATE coupons
+    SET used_quantity = used_quantity - 1
+    WHERE id = $1 AND used_quantity > 0
+    RETURNING id, used_quantity
+  `;
+
+        const result = await client.query(coupon, [order.coupon_id]);
+
+        console.log("coupon_id:", order.coupon_id);
+        console.log("Kết quả cập nhật coupon:", result.rows);
+      } else {
+        console.log("Đơn hàng không có coupon_id:", order);
       }
 
       // 2. Lấy danh sách sản phẩm chi tiết trong đơn hàng (gồm variant_id, quantity, cost_price lúc bán)
@@ -331,9 +348,7 @@ const OrderModel = {
   async getOrderByCodeAndUserId(orderCode, userId) {
     const query = `
       SELECT 
-        o.order_code, o.order_date, o.total_amount, o.order_status, 
-        o.payment_status, o.shipping_address, o.phone, o.recipient_name, 
-        o.refund_image_url, dp.image_url AS delivery_proof_image,
+       o.*, dp.image_url AS delivery_proof_image,
         COALESCE(
           json_agg(
             json_build_object(
@@ -356,6 +371,22 @@ const OrderModel = {
     `;
     const { rows } = await pool.query(query, [orderCode, userId]);
     return rows[0]; // Trả về đúng 1 đối tượng đơn hàng kèm theo mảng items
+  },
+  async getVariantByOrder(orderCode) {
+    const query = `
+    SELECT od.variant_id, od.quantity, pv.selling_price,pv.sale_price,p.name as product_name,
+    pv.image_url as image, pv.sku
+    FROM orders o 
+    JOIN order_details od
+    ON o.order_code = od.order_code
+    JOIN product_variants pv 
+    ON pv.id = od.variant_id
+    JOIN products p 
+    ON p.id = pv.product_id
+    WHERE o.order_code = $1
+    `;
+    const result = await pool.query(query, [orderCode]);
+    return result.rows;
   },
 };
 

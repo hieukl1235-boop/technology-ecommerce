@@ -58,8 +58,8 @@ const showMessage = (msg, type = 'success') => {
 }
 
 const getPaymentMethodName = (id) => {
-  if (id === 1) return 'Thanh toán online (VNPay)'
-  if (id === 2) return 'Tiền mặt khi nhận hàng (COD)'
+  if (id === 1) return 'Tiền mặt khi nhận hàng (COD)'
+  if (id === 2) return 'Thanh toán online (VNPay)'
   return 'Khác'
 }
 

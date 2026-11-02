@@ -14,10 +14,9 @@ class Review {
           r.reply,
           r.created_at,
           r.updated_at,
-
-          u.full_name AS user_name,   -- ⚠️ đổi theo tên cột thật trong bảng users
+          u.full_name AS user_name, 
+          u.avatar,
           pv.sku,
-
           COALESCE(
             (
               SELECT json_agg(ri.image_url ORDER BY ri.id)

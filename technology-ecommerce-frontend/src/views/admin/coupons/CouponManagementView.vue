@@ -102,7 +102,20 @@ const formatDateTimeVN = (date) => {
     minute: '2-digit',
   })
 }
+const selectAllCategories = computed({
+  get() {
+    return categories.value.length > 0 &&
+      form.value.category_ids.length === categories.value.length
+  },
 
+  set(value) {
+    if (value) {
+      form.value.category_ids = categories.value.map(cat => Number(cat.id))
+    } else {
+      form.value.category_ids = []
+    }
+  },
+})
 // ============ CRUD ============
 const createCoupon = async () => {
   if (isSubmitting.value) return
@@ -237,9 +250,8 @@ onBeforeUnmount(() => {
     <!-- HEADER -->
     <div class="page-header">
       <button class="btn-back" @click="$router.back()" title="Quay lại">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-             fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="19" y1="12" x2="5" y2="12"></line>
           <polyline points="12 19 5 12 12 5"></polyline>
         </svg>
@@ -280,38 +292,43 @@ onBeforeUnmount(() => {
               <div class="form-row">
                 <div class="form-group">
                   <label class="tech-label">Mã giảm giá <span class="text-danger">*</span></label>
-                  <input v-model="form.code" class="tech-input tech-input-code"
-                         placeholder="VD: SALE50" :disabled="isSubmitting" required />
+                  <input v-model="form.code" class="tech-input tech-input-code" placeholder="VD: SALE50"
+                    :disabled="isSubmitting" required />
                 </div>
                 <div class="form-group">
                   <label class="tech-label">Tên chương trình <span class="text-danger">*</span></label>
-                  <input v-model="form.name" class="tech-input"
-                         placeholder="VD: Sale mùa thu" :disabled="isSubmitting" required />
+                  <input v-model="form.name" class="tech-input" placeholder="VD: Sale mùa thu" :disabled="isSubmitting"
+                    required />
                 </div>
               </div>
 
               <!-- Danh mục áp dụng -->
+              <!-- Danh mục áp dụng -->
               <div class="form-group">
                 <label class="tech-label">Áp dụng cho danh mục</label>
+
                 <div class="category-box">
                   <div v-if="categories.length === 0" class="empty-inline">
                     Đang tải danh mục...
                   </div>
-                  <label
-                    v-for="cat in categories"
-                    :key="cat.id"
-                    class="category-item"
-                    :class="{ 'category-item-active': form.category_ids.includes(Number(cat.id)) }"
-                  >
-                    <input
-                      type="checkbox"
-                      class="tech-checkbox"
-                      :value="Number(cat.id)"
-                      v-model="form.category_ids"
-                      :disabled="isSubmitting"
-                    />
-                    <span>{{ cat.name }}</span>
-                  </label>
+
+                  <template v-else>
+                    <!-- Chọn tất cả -->
+                    <label class="category-item category-select-all">
+                      <input type="checkbox" class="tech-checkbox" v-model="selectAllCategories"
+                        :disabled="isSubmitting" />
+                      <span>Chọn tất cả danh mục</span>
+                    </label>
+
+                    <!-- Danh sách danh mục -->
+                    <label v-for="cat in categories" :key="cat.id" class="category-item" :class="{
+                      'category-item-active': form.category_ids.includes(Number(cat.id))
+                    }">
+                      <input type="checkbox" class="tech-checkbox" :value="Number(cat.id)" v-model="form.category_ids"
+                        :disabled="isSubmitting" />
+                      <span>{{ cat.name }}</span>
+                    </label>
+                  </template>
                 </div>
               </div>
 
@@ -319,8 +336,7 @@ onBeforeUnmount(() => {
               <div class="form-row">
                 <div class="form-group">
                   <label class="tech-label">Loại giảm giá</label>
-                  <select v-model.number="form.discount_type" class="tech-input tech-select"
-                          :disabled="isSubmitting">
+                  <select v-model.number="form.discount_type" class="tech-input tech-select" :disabled="isSubmitting">
                     <option :value="1">Giảm theo phần trăm</option>
                     <option :value="2">Giảm số tiền cố định</option>
                   </select>
@@ -330,30 +346,29 @@ onBeforeUnmount(() => {
                     {{ form.discount_type === 1 ? 'Phần trăm giảm (%)' : 'Số tiền giảm (VNĐ)' }}
                     <span class="text-danger">*</span>
                   </label>
-                  <input type="number" v-model.number="form.discount_value"
-                         class="tech-input" min="1" :disabled="isSubmitting" required />
+                  <input type="number" v-model.number="form.discount_value" class="tech-input" min="1"
+                    :disabled="isSubmitting" required />
                 </div>
               </div>
 
               <!-- Mức giảm tối đa (chỉ khi %) -->
               <div class="form-group" v-if="form.discount_type === 1">
                 <label class="tech-label">Mức giảm tối đa (VNĐ)</label>
-                <input type="number" v-model="form.max_discount" class="tech-input"
-                       min="1" placeholder="Không giới hạn nếu để trống"
-                       :disabled="isSubmitting" />
+                <input type="number" v-model="form.max_discount" class="tech-input" min="1"
+                  placeholder="Không giới hạn nếu để trống" :disabled="isSubmitting" />
               </div>
 
               <!-- Đơn tối thiểu + Số lượt -->
               <div class="form-row">
                 <div class="form-group">
                   <label class="tech-label">Đơn tối thiểu (VNĐ)</label>
-                  <input type="number" v-model.number="form.min_order_value" class="tech-input"
-                         min="0" :disabled="isSubmitting" required />
+                  <input type="number" v-model.number="form.min_order_value" class="tech-input" min="0"
+                    :disabled="isSubmitting" required />
                 </div>
                 <div class="form-group">
                   <label class="tech-label">Số lượt sử dụng <span class="text-danger">*</span></label>
-                  <input type="number" v-model.number="form.quantity" class="tech-input"
-                         min="1" :disabled="isSubmitting" required />
+                  <input type="number" v-model.number="form.quantity" class="tech-input" min="1"
+                    :disabled="isSubmitting" required />
                 </div>
               </div>
 
@@ -361,13 +376,13 @@ onBeforeUnmount(() => {
               <div class="form-row">
                 <div class="form-group">
                   <label class="tech-label">Bắt đầu <span class="text-danger">*</span></label>
-                  <input type="datetime-local" v-model="form.start_date" class="tech-input"
-                         :disabled="isSubmitting" required />
+                  <input type="datetime-local" v-model="form.start_date" class="tech-input" :disabled="isSubmitting"
+                    required />
                 </div>
                 <div class="form-group">
                   <label class="tech-label">Kết thúc <span class="text-danger">*</span></label>
-                  <input type="datetime-local" v-model="form.end_date" class="tech-input"
-                         :disabled="isSubmitting" required />
+                  <input type="datetime-local" v-model="form.end_date" class="tech-input" :disabled="isSubmitting"
+                    required />
                 </div>
               </div>
 
@@ -381,8 +396,8 @@ onBeforeUnmount(() => {
                       : (isEditing ? 'Cập nhật' : 'Tạo mã giảm giá') }}
                   </span>
                 </button>
-                <button v-if="isEditing" type="button" class="btn-cancel-tech"
-                        :disabled="isSubmitting" @click="resetForm">
+                <button v-if="isEditing" type="button" class="btn-cancel-tech" :disabled="isSubmitting"
+                  @click="resetForm">
                   Hủy sửa
                 </button>
               </div>
@@ -404,14 +419,14 @@ onBeforeUnmount(() => {
 
           <div class="table-search-bar">
             <div class="search-input-wrapper">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                   fill="none" stroke="currentColor" stroke-width="2"
-                   stroke-linecap="round" stroke-linejoin="round" class="search-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                class="search-icon">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
               <input v-model="searchQuery" type="text" class="tech-search-input"
-                     placeholder="Tìm theo mã hoặc tên chương trình..." />
+                placeholder="Tìm theo mã hoặc tên chương trình..." />
               <button v-if="searchQuery" class="search-clear-btn" @click="searchQuery = ''">✕</button>
             </div>
           </div>
@@ -464,11 +479,11 @@ onBeforeUnmount(() => {
 
                   <td>
                     <span class="discount-value">
-                     {{
-  coupon.discount_type === 1
-    ? Number(coupon.discount_value) + '%'
-    : Number(coupon.discount_value).toLocaleString('vi-VN') + ' ₫'
-}}
+                      {{
+                        coupon.discount_type === 1
+                          ? Number(coupon.discount_value) + '%'
+                          : Number(coupon.discount_value).toLocaleString('vi-VN') + ' ₫'
+                      }}
                     </span>
                     <span v-if="coupon.discount_type === 1 && Number(coupon.max_discount) > 0" class="discount-sub">
                       Tối đa {{ Number(coupon.max_discount).toLocaleString('vi-VN') }}đ
@@ -497,10 +512,7 @@ onBeforeUnmount(() => {
                   </td>
 
                   <td class="text-center">
-                    <span
-                      class="status-pill"
-                      :class="coupon.status === 1 ? 'status-active' : 'status-locked'"
-                    >
+                    <span class="status-pill" :class="coupon.status === 1 ? 'status-active' : 'status-locked'">
                       <span class="status-indicator"></span>
                       {{ coupon.status === 1 ? 'Hoạt động' : 'Đã tắt' }}
                     </span>
@@ -509,33 +521,27 @@ onBeforeUnmount(() => {
                   <td class="text-center pe-4">
                     <div class="action-btn-group">
                       <button class="btn-row-action btn-row-edit" @click="editCoupon(coupon.id)" title="Chỉnh sửa">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                             viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                           <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path>
                           <path d="m15 5 4 4"></path>
                         </svg>
                       </button>
 
-                      <button
-                        class="btn-row-action"
-                        :class="coupon.status === 1 ? 'btn-row-lock' : 'btn-row-unlock'"
-                        :title="coupon.status === 1 ? 'Tắt mã' : 'Bật mã'"
-                        :disabled="statusChangingId === coupon.id"
-                        @click="changeStatus(coupon)"
-                      >
+                      <button class="btn-row-action" :class="coupon.status === 1 ? 'btn-row-lock' : 'btn-row-unlock'"
+                        :title="coupon.status === 1 ? 'Tắt mã' : 'Bật mã'" :disabled="statusChangingId === coupon.id"
+                        @click="changeStatus(coupon)">
                         <span v-if="statusChangingId === coupon.id" class="spinner-xs"></span>
                         <template v-else>
-                          <svg v-if="coupon.status === 1" xmlns="http://www.w3.org/2000/svg"
-                               width="14" height="14" viewBox="0 0 24 24" fill="none"
-                               stroke="currentColor" stroke-width="2"
-                               stroke-linecap="round" stroke-linejoin="round">
+                          <svg v-if="coupon.status === 1" xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
                             <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
                             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                           </svg>
-                          <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                               viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round">
                             <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
                             <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
                           </svg>
@@ -575,7 +581,12 @@ onBeforeUnmount(() => {
   margin-bottom: 24px;
   flex-wrap: wrap;
 }
-.header-titles { flex: 1; min-width: 0; }
+
+.header-titles {
+  flex: 1;
+  min-width: 0;
+}
+
 .brand-tag {
   font-size: 0.725rem;
   font-weight: 700;
@@ -583,6 +594,7 @@ onBeforeUnmount(() => {
   letter-spacing: 0.08em;
   margin-bottom: 4px;
 }
+
 .page-title {
   font-size: 1.75rem;
   font-weight: 800;
@@ -590,8 +602,16 @@ onBeforeUnmount(() => {
   margin: 0 0 4px 0;
   letter-spacing: -0.02em;
 }
-.page-sub { margin: 0; font-size: 0.85rem; color: #64748b; }
-.page-sub b { color: #0284c7; }
+
+.page-sub {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.page-sub b {
+  color: #0284c7;
+}
 
 .btn-back {
   display: inline-flex;
@@ -609,6 +629,7 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   margin-top: 4px;
 }
+
 .btn-back:hover {
   background: #f0f9ff;
   color: #0284c7;
@@ -628,16 +649,46 @@ onBeforeUnmount(() => {
   margin-bottom: 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
-.alert-success { background-color: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; }
-.alert-error { background-color: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; }
-.btn-close-msg {
-  background: transparent; border: none; color: inherit;
-  cursor: pointer; font-size: 0.9rem; margin-left: auto;
-  opacity: 0.6; padding: 4px 8px; border-radius: 4px;
+
+.alert-success {
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
 }
-.btn-close-msg:hover { opacity: 1; background: rgba(0, 0, 0, 0.05); }
-.slide-fade-enter-active, .slide-fade-leave-active { transition: all 0.3s ease; }
-.slide-fade-enter-from, .slide-fade-leave-to { opacity: 0; transform: translateY(-10px); }
+
+.alert-error {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.btn-close-msg {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-left: auto;
+  opacity: 0.6;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.btn-close-msg:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.slide-fade-enter-active,
+.slide-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
 
 /* ============ CARD BOX ============ */
 .card-box {
@@ -647,6 +698,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
+
 .card-box-header {
   padding: 18px 24px;
   border-bottom: 1px solid #f1f5f9;
@@ -655,11 +707,30 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
 }
-.header-icon { font-size: 18px; }
-.header-left { display: flex; align-items: center; gap: 10px; }
-.table-header { justify-content: space-between; flex-wrap: wrap; }
-.card-box-body { padding: 24px; }
-.sticky-form { position: sticky; top: 30px; }
+
+.header-icon {
+  font-size: 18px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.table-header {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.card-box-body {
+  padding: 24px;
+}
+
+.sticky-form {
+  position: sticky;
+  top: 30px;
+}
 
 /* ============ FORM ============ */
 .form-row {
@@ -667,7 +738,10 @@ onBeforeUnmount(() => {
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
-.form-group { margin-bottom: 16px; }
+
+.form-group {
+  margin-bottom: 16px;
+}
 
 .tech-label {
   font-size: 0.875rem;
@@ -690,23 +764,29 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   font-family: inherit;
 }
+
 .tech-input:focus {
   background-color: #ffffff;
   border-color: #0284c7;
   box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
 }
+
 .tech-input:disabled {
   background-color: #f1f5f9;
   color: #94a3b8;
   cursor: not-allowed;
 }
+
 .tech-input-code {
   text-transform: uppercase;
   font-weight: 700;
   letter-spacing: 0.05em;
   color: #0284c7;
 }
-.tech-select { cursor: pointer; }
+
+.tech-select {
+  cursor: pointer;
+}
 
 /* ============ CATEGORY CHECKBOXES ============ */
 .category-box {
@@ -720,8 +800,15 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 4px;
 }
-.category-box::-webkit-scrollbar { width: 6px; }
-.category-box::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+
+.category-box::-webkit-scrollbar {
+  width: 6px;
+}
+
+.category-box::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
 
 .category-item {
   display: flex;
@@ -737,13 +824,18 @@ onBeforeUnmount(() => {
   font-weight: 500;
   transition: all 0.15s;
 }
-.category-item:hover { border-color: #94a3b8; }
+
+.category-item:hover {
+  border-color: #94a3b8;
+}
+
 .category-item-active {
   border-color: #0284c7;
   background: #f0f9ff;
   color: #0284c7;
   font-weight: 600;
 }
+
 .tech-checkbox {
   width: 16px;
   height: 16px;
@@ -768,6 +860,7 @@ onBeforeUnmount(() => {
   padding-top: 20px;
   border-top: 1px solid #f1f5f9;
 }
+
 .btn-primary-tech {
   flex: 1;
   padding: 11px 16px;
@@ -785,12 +878,18 @@ onBeforeUnmount(() => {
   justify-content: center;
   gap: 8px;
 }
+
 .btn-primary-tech:hover:not(:disabled) {
   background: linear-gradient(135deg, #0369a1 0%, #1d4ed8 100%);
   transform: translateY(-1px);
   box-shadow: 0 6px 16px rgba(2, 132, 199, 0.35);
 }
-.btn-primary-tech:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
+
+.btn-primary-tech:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
 
 .btn-cancel-tech {
   padding: 11px 18px;
@@ -803,19 +902,29 @@ onBeforeUnmount(() => {
   cursor: pointer;
   transition: all 0.2s;
 }
-.btn-cancel-tech:hover:not(:disabled) { background: #f1f5f9; border-color: #94a3b8; }
-.btn-cancel-tech:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-cancel-tech:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.btn-cancel-tech:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 /* ============ TABLE ============ */
 .table-search-bar {
   padding: 14px 24px;
   border-bottom: 1px solid #f1f5f9;
 }
+
 .search-input-wrapper {
   position: relative;
   width: 100%;
   max-width: 420px;
 }
+
 .search-icon {
   position: absolute;
   left: 14px;
@@ -824,6 +933,7 @@ onBeforeUnmount(() => {
   color: #94a3b8;
   pointer-events: none;
 }
+
 .tech-search-input {
   width: 100%;
   padding: 9px 36px 9px 42px;
@@ -836,11 +946,13 @@ onBeforeUnmount(() => {
   transition: all 0.2s;
   box-sizing: border-box;
 }
+
 .tech-search-input:focus {
   background-color: #ffffff;
   border-color: #0284c7;
   box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
 }
+
 .search-clear-btn {
   position: absolute;
   right: 10px;
@@ -858,7 +970,11 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
 }
-.search-clear-btn:hover { background: #cbd5e1; color: #0f172a; }
+
+.search-clear-btn:hover {
+  background: #cbd5e1;
+  color: #0f172a;
+}
 
 .custom-table thead th {
   background-color: #f8fafc;
@@ -871,8 +987,15 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid #e2e8f0;
   white-space: nowrap;
 }
-.custom-table tbody tr { transition: background-color 0.15s ease; }
-.custom-table tbody tr:hover { background-color: #f8fafc; }
+
+.custom-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.custom-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
 .custom-table tbody td {
   padding: 12px;
   border-bottom: 1px solid #f1f5f9;
@@ -886,6 +1009,7 @@ onBeforeUnmount(() => {
   font-size: 0.9rem;
   letter-spacing: 0.03em;
 }
+
 .coupon-name {
   display: block;
   font-size: 0.78rem;
@@ -899,6 +1023,7 @@ onBeforeUnmount(() => {
   color: #dc2626;
   font-size: 0.95rem;
 }
+
 .discount-sub {
   display: block;
   font-size: 0.72rem;
@@ -912,6 +1037,7 @@ onBeforeUnmount(() => {
   color: #0f172a;
   font-size: 0.85rem;
 }
+
 .condition-sub {
   display: block;
   font-size: 0.72rem;
@@ -935,7 +1061,12 @@ onBeforeUnmount(() => {
   font-size: 0.78rem;
   font-weight: 700;
 }
-.used-sep { color: #94a3b8; margin: 0 2px; font-weight: 500; }
+
+.used-sep {
+  color: #94a3b8;
+  margin: 0 2px;
+  font-weight: 500;
+}
 
 .status-pill {
   display: inline-flex;
@@ -947,22 +1078,42 @@ onBeforeUnmount(() => {
   font-weight: 600;
   white-space: nowrap;
 }
-.status-indicator { width: 6px; height: 6px; border-radius: 50%; }
-.status-active {
-  background-color: #ecfdf5; color: #059669; border: 1px solid #a7f3d0;
+
+.status-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
 }
+
+.status-active {
+  background-color: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
 .status-active .status-indicator {
   background-color: #10b981;
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
-.status-locked {
-  background-color: #fef2f2; color: #dc2626; border: 1px solid #fecaca;
-}
-.status-locked .status-indicator { background-color: #ef4444; }
 
-.action-btn-group { display: inline-flex; gap: 6px; }
+.status-locked {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.status-locked .status-indicator {
+  background-color: #ef4444;
+}
+
+.action-btn-group {
+  display: inline-flex;
+  gap: 6px;
+}
+
 .btn-row-action {
-  width: 32px; height: 32px;
+  width: 32px;
+  height: 32px;
   border-radius: 6px;
   border: 1px solid transparent;
   display: inline-flex;
@@ -972,26 +1123,39 @@ onBeforeUnmount(() => {
   background: #ffffff;
   transition: all 0.2s;
 }
-.btn-row-action:disabled { opacity: 0.55; cursor: not-allowed; }
-.btn-row-edit {
-  border-color: #cbd5e1; color: #0284c7;
+
+.btn-row-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
+
+.btn-row-edit {
+  border-color: #cbd5e1;
+  color: #0284c7;
+}
+
 .btn-row-edit:hover:not(:disabled) {
   background-color: #f0f9ff;
   border-color: #0284c7;
   transform: translateY(-1px);
 }
+
 .btn-row-lock {
-  border-color: #fecaca; color: #ef4444;
+  border-color: #fecaca;
+  color: #ef4444;
 }
+
 .btn-row-lock:hover:not(:disabled) {
   background-color: #fef2f2;
   border-color: #dc2626;
   transform: translateY(-1px);
 }
+
 .btn-row-unlock {
-  border-color: #a7f3d0; color: #10b981;
+  border-color: #a7f3d0;
+  color: #10b981;
 }
+
 .btn-row-unlock:hover:not(:disabled) {
   background-color: #ecfdf5;
   border-color: #059669;
@@ -1000,54 +1164,113 @@ onBeforeUnmount(() => {
 
 /* ============ SPINNERS ============ */
 .spinner {
-  width: 36px; height: 36px;
+  width: 36px;
+  height: 36px;
   border: 3px solid #e2e8f0;
   border-top-color: #0284c7;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
+
 .spinner-sm {
-  width: 14px; height: 14px;
+  width: 14px;
+  height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.4);
   border-top-color: #ffffff;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
+
 .spinner-xs {
-  width: 12px; height: 12px;
+  width: 12px;
+  height: 12px;
   border: 2px solid rgba(2, 132, 199, 0.25);
   border-top-color: #0284c7;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* ============ LOADING & EMPTY ============ */
 .loading-state {
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  padding: 60px 20px; gap: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 14px;
 }
-.loading-state p { margin: 0; color: #64748b; font-size: 0.9rem; }
+
+.loading-state p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
 
 .empty-state {
-  display: flex; flex-direction: column;
-  align-items: center; gap: 8px; padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px;
 }
-.empty-icon { font-size: 42px; opacity: 0.55; margin-bottom: 6px; }
-.empty-title { margin: 0; font-weight: 700; color: #475569; font-size: 1rem; }
-.empty-sub { margin: 0; font-size: 0.85rem; color: #94a3b8; max-width: 340px; }
+
+.empty-icon {
+  font-size: 42px;
+  opacity: 0.55;
+  margin-bottom: 6px;
+}
+
+.empty-title {
+  margin: 0;
+  font-weight: 700;
+  color: #475569;
+  font-size: 1rem;
+}
+
+.empty-sub {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #94a3b8;
+  max-width: 340px;
+}
 
 /* ============ RESPONSIVE ============ */
 @media (max-width: 992px) {
-  .coupon-page-wrapper { padding: 22px 20px; }
-  .sticky-form { position: static; }
+  .coupon-page-wrapper {
+    padding: 22px 20px;
+  }
+
+  .sticky-form {
+    position: static;
+  }
 }
+
 @media (max-width: 640px) {
-  .coupon-page-wrapper { padding: 16px 12px; }
-  .page-title { font-size: 1.4rem; }
-  .page-header { flex-direction: column; align-items: stretch; }
-  .form-row { grid-template-columns: 1fr; }
-  .search-input-wrapper { max-width: 100%; }
+  .coupon-page-wrapper {
+    padding: 16px 12px;
+  }
+
+  .page-title {
+    font-size: 1.4rem;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .search-input-wrapper {
+    max-width: 100%;
+  }
 }
 </style>

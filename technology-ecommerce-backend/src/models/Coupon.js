@@ -1,4 +1,3 @@
-
 const pool = require("../config/db");
 
 class Coupon {
@@ -200,28 +199,33 @@ class Coupon {
     const result = await pool.query(query, [couponId]);
     return result.rows.map((row) => row.category_id);
   }
+
   static async getAvailableCoupons() {
     const query = `
-      SELECT
-    c.*,
-    COALESCE(
+    SELECT
+      c.*,
+      COALESCE(
         json_agg(
-            json_build_object(
-                'id', ca.id,
-                'name', ca.name
-            )
+          json_build_object(
+            'id', ca.id,
+            'name', ca.name
+          )
         ) FILTER (WHERE ca.id IS NOT NULL),
         '[]'
-    ) AS categories
-FROM coupons c
-LEFT JOIN coupon_categories cc
-    ON c.id = cc.coupon_id
-LEFT JOIN categories ca
-    ON cc.category_id = ca.id
-WHERE c.status = 1
-GROUP BY c.id
-ORDER BY c.id DESC;
-    `;
+      ) AS categories
+    FROM coupons c
+    LEFT JOIN coupon_categories cc
+      ON c.id = cc.coupon_id
+    LEFT JOIN categories ca
+      ON cc.category_id = ca.id
+    WHERE c.status = 1
+      AND c.start_date <= NOW()
+      AND c.end_date >= NOW()
+      AND c.used_quantity < c.quantity
+    GROUP BY c.id
+    ORDER BY c.end_date ASC, c.id DESC
+  `;
+
     const result = await pool.query(query);
     return result.rows;
   }

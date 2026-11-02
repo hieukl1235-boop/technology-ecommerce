@@ -102,7 +102,8 @@ class User {
         gender,
         status,
         created_at,
-        updated_at
+        updated_at,
+        avatar
       FROM users
       ORDER BY id DESC
     `);
@@ -204,14 +205,16 @@ class User {
   static async getOrdersByUserId(userId) {
     const query = `
       SELECT 
-        o.order_code, o.order_date, o.total_amount, o.order_status, 
+        o.order_code, o.order_date, o.total_amount, o.order_status,
         o.payment_status, o.shipping_address, o.phone, o.recipient_name, 
         o.refund_image_url, dp.image_url AS delivery_proof_image,
+        c.code as sale_code,c.name as sale_name,
         COALESCE(
           json_agg(
             json_build_object(
               'variant_id', od.variant_id, 
               'product_name', p.name,
+              'product_id',p.id,
               'sku', v.sku,
               'quantity', od.quantity,
               'unit_price', od.unit_price,
@@ -224,8 +227,9 @@ class User {
       LEFT JOIN product_variants v ON od.variant_id = v.id
       LEFT JOIN products p ON v.product_id = p.id
       LEFT JOIN delivery_proofs dp ON o.delivery_proof_id = dp.id
+      LEFT JOIN coupons c ON c.id = o.coupon_id
       WHERE o.user_id = $1
-      GROUP BY o.order_code, dp.image_url
+      GROUP BY o.order_code, dp.image_url,c.code,c.name
       ORDER BY o.order_date DESC;
     `;
     const { rows } = await pool.query(query, [userId]);
@@ -281,6 +285,18 @@ class User {
     }
   }
 
+  static async updateAvatar(avatarFile, userId) {
+    const query = `
+    UPDATE users 
+    SET avatar = $1 
+    WHERE id = $2
+    RETURNING id, avatar
+  `;
+
+    const result = await pool.query(query, [avatarFile, userId]);
+
+    return result.rows[0];
+  }
 }
 
 module.exports = User;

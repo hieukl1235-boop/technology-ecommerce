@@ -57,7 +57,16 @@ def load_interactions():
         JOIN products AS p
             ON p.id = pv.product_id
         WHERE o.user_id IS NOT NULL
-        GROUP BY o.user_id, pv.product_id, p.name
-        ORDER BY o.user_id, pv.product_id
+            AND o.order_status = 4
+            AND o.payment_status = 1
+            AND p.status = 1
+        GROUP BY
+            o.user_id,
+            pv.product_id,
+            p.name
+        ORDER BY
+            o.user_id,
+            pv.product_id
     """
+
     return fetch_dataframe(query)

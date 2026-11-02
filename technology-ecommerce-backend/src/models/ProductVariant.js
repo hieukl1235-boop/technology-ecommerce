@@ -103,11 +103,13 @@ class ProductVariant {
 
   static async getVariantsBySupplierId(supplier_id) {
     const result = await pool.query(
-      `SELECT pv.*
+      `SELECT pv.*,p.name
       FROM product_variants pv
       JOIN variant_suppliers vs
       ON vs.variant_id = pv.id
-      WHERE pv.status = 1
+      JOIN products p
+      ON p.id = pv.product_id
+      WHERE pv.status = 1 
       AND vs.supplier_id = $1
       `,
       [supplier_id],

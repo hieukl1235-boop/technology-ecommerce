@@ -46,7 +46,7 @@ app.use("/api/admin/employees", employeeRoutes);
 app.use("/api/admin/purchase-receipts", purchaseReceiptRoutes);
 app.use("/api/admin/coupons", couponRoutes);
 app.use("/api/payment-methods", require("./src/routes/user/paymentRoutes"));
-app.use("/api/", productHomeRoutes);
+app.use("/api/products", productHomeRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/admin/banners", bannerRoutes);
 app.use("/api/product-variants", productVariantRoutes);

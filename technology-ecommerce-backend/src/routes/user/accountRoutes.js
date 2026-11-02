@@ -8,6 +8,7 @@ const {
   updateProfile,
   getMyOrders,
   submitReview,
+  updateAvatar,
 } = require("../../controllers/user/accountController");
 const upload = require("../../middleware/upload")
 
@@ -24,5 +25,11 @@ router.post(
     maxCount: 5,
   }]),
   submitReview,
+);
+router.post(
+  "/avatar",
+  upload.single("avatar"),
+  authMiddleware.authenticateUser,
+  updateAvatar,
 );
 module.exports = router;

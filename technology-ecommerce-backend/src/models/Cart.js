@@ -45,7 +45,7 @@ class Cart {
   }
   static async getAllItems(cartId) {
     const result = await pool.query(
-      `  SELECT ci.*, p.name AS product_name, pv.sku AS sku, pv.selling_price AS selling_price, pv.sale_price AS sale_price, pv.image_url AS image
+      `  SELECT ci.*, p.name AS product_name, p.id AS product_id, pv.sku AS sku, pv.selling_price AS selling_price, pv.sale_price AS sale_price, pv.image_url AS image
             FROM cart_items ci
             JOIN product_variants pv ON ci.variant_id = pv.id
             JOIN products p ON pv.product_id = p.id

@@ -40,7 +40,8 @@ def recommend_for_user(
     user_product,
     user_similarity_matrix,
     product_names,
-    top_n=5
+    top_n=5,
+    k_neighbors=30
 ):
     empty_result = pd.DataFrame(
         columns=["product_id", "name", "recommendation_score"]
@@ -62,15 +63,13 @@ def recommend_for_user(
         for index, score in neighbor_scores
         if index != user_index and score > 0
     ]
-
     neighbor_scores.sort(key=lambda item: item[1], reverse=True)
-
+    neighbor_scores = neighbor_scores[:k_neighbors]   # thêm dòng này
     if not neighbor_scores:
         return empty_result
 
     neighbor_indices = [index for index, score in neighbor_scores]
     weights = np.array([score for index, score in neighbor_scores])
-
     # Tính điểm từng sản phẩm dựa trên việc các khách tương tự đã mua
     neighbor_purchases = user_product.iloc[neighbor_indices].to_numpy()
     recommendation_scores = np.average(

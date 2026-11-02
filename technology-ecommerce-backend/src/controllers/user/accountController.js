@@ -39,6 +39,32 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const updateAvatar = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        message: "Vui lòng chọn ảnh",
+      });
+    }
+
+    const avatarFile = req.file.filename;
+    const userId = req.user.id;
+
+    const result = await User.updateAvatar(avatarFile, userId);
+
+    res.status(200).json({
+      message: "Cập nhật ảnh đại diện thành công",
+      avatar: result.avatar,
+    });
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).json({
+      message: "Lỗi cập nhật ảnh đại diện",
+    });
+  }
+};
+
 const getMyOrders = async  (req, res) => {
   try {
     // req.user được gán từ middleware xác thực token (JWT)
@@ -109,4 +135,5 @@ module.exports = {
   updateProfile,
   getMyOrders,
   submitReview,
+  updateAvatar,
 };

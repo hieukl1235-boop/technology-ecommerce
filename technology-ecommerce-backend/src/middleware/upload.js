@@ -17,6 +17,8 @@ const storage = multer.diskStorage({
       cb(null, "src/uploads/refunds");
     } else if (file.fieldname === "images_review") {
       cb(null, "src/uploads/images_review");
+    } else if (file.fieldname === "avatar") {
+      cb(null, "src/uploads/avatars");
     } else {
       cb(null, "src/uploads/others"); // Thư mục dự phòng nếu có trường hợp khác
     }

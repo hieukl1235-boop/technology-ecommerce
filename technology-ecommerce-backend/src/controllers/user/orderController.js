@@ -37,11 +37,12 @@ const OrderController = {
         total_amount,
       } = req.body;
 
-      // --- 1. RÀNG BUỘC ĐẦU VÀO: KIỂM TRA GIỎ HÀNG & THÔNG TIN ---
       if (!items || !Array.isArray(items) || items.length === 0) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Đơn hàng không có sản phẩm nào!" });
+        // --- 1. RÀNG BUỘC ĐẦU VÀO: KIỂM TRA GIỎ HÀNG & THÔNG TIN ---
+        return res.status(400).json({
+          success: false,
+          message: "Đơn hàng không có sản phẩm nào!",
+        });
       }
 
       if (!shipping_address || !recipient_name || !phone) {
@@ -106,14 +107,11 @@ const OrderController = {
         const createDate = getVnpayCreateDate(date);
         const ipAddr =
           req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-
-        const tmnCode = "FZVQEHXQ";
-        const secretKey = "EQZENDRFNHIUDAXGMABALBHIOGDGCKRH";
-        const vnpUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
-        const returnUrl = "http://localhost:3000/api/orders/vnpay_return";
-
+        const tmnCode = process.env.VNP_TMNCODE;
+        const secretKey = process.env.VNP_HASH_SECRET;
+        const vnpUrl = process.env.VNP_URL;
+        const returnUrl = process.env.VNP_RETURN_URL;
         const amount = total_amount * 100; // VNPay yêu cầu nhân số tiền với 100
-
         let vnp_Params = {};
         vnp_Params["vnp_Version"] = "2.1.0";
         vnp_Params["vnp_Command"] = "pay";
@@ -172,7 +170,7 @@ const OrderController = {
     delete vnp_Params["vnp_SecureHashType"];
 
     vnp_Params = sortObject(vnp_Params);
-    let secretKey = "EQZENDRFNHIUDAXGMABALBHIOGDGCKRH";
+    let secretKey = process.env.VNP_HASH_SECRET;
 
     let signData = querystring.stringify(vnp_Params, { encode: false });
     let hmac = crypto.createHmac("sha512", secretKey);
@@ -184,13 +182,21 @@ const OrderController = {
 
       if (rspCode === "00") {
         await pool.query(
-          "UPDATE orders SET payment_status = 1 WHERE order_code = $1",
+          `UPDATE orders
+     SET payment_status = 1
+     WHERE order_code = $1
+       AND order_status = 1
+       AND payment_status = 0`,
           [orderCode],
         );
+
         return res.redirect(
           `http://localhost:5173/home?status=success&order_code=${orderCode}`,
         );
       } else {
+        // Hủy đơn hàng và hoàn kho
+        await OrderModel.cancelAndRestockOrder(orderCode);
+
         return res.redirect(
           `http://localhost:5173/home?status=failed&order_code=${orderCode}`,
         );
@@ -310,6 +316,26 @@ const OrderController = {
       return res.status(500).json({
         success: false,
         message: "Lỗi server khi tải chi tiết đơn hàng.",
+      });
+    }
+  },
+
+  async getVariant(req, res) {
+    try {
+      const orderCode = req.params.orderCode;
+
+      const result = await OrderModel.getVariantByOrder(orderCode);
+
+      return res.status(200).json({
+        success: true,
+        products: result,
+      });
+    } catch (error) {
+      console.error("Lỗi lấy sản phẩm theo đơn hàng:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi server",
       });
     }
   },

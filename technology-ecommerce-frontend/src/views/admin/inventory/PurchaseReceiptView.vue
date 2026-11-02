@@ -136,6 +136,7 @@
                         class="variant-label"
                         :for="'var-' + variant.id"
                       >
+                       <span class="variant-sku" style="color: blue;">{{ variant.name }}</span>
                         <span class="variant-sku">SKU: {{ variant.sku }}</span>
                         <span class="variant-price">
                           Giá bán: <b>{{ Number(variant.selling_price).toLocaleString('vi-VN') }}đ</b>

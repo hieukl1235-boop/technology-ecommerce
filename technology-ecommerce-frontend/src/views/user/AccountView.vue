@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed,onMounted, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 
 // Các trường thông tin người dùng
@@ -28,6 +28,12 @@ const showMessage = (msg, type = 'success') => {
     message.value = ''
   }, 3500)
 }
+// ============ AVATAR ============
+const avatarUrl = ref('')          // URL hiện tại từ backend
+const avatarPreview = ref('')      // Preview ảnh mới chọn (blob)
+const avatarFile = ref(null)       // File ảnh mới
+const isUploadingAvatar = ref(false)
+const avatarInputRef = ref(null)
 
 // Lấy thông tin tài khoản
 const fetchedUserData = async () => {
@@ -44,6 +50,9 @@ const fetchedUserData = async () => {
     dateOfBirth.value = user.date_of_birth ? user.date_of_birth.split('T')[0] : ''
     gender.value = user.gender !== undefined && user.gender !== null ? String(user.gender) : ''
     status.value = user.status || ''
+    if (user.avatar) {
+      avatarUrl.value = `http://localhost:3000/uploads/avatars/${user.avatar}`
+    }
   } catch (error) {
     console.error('Lỗi tải dữ liệu người dùng:', error)
     showMessage('Không thể tải thông tin tài khoản', 'error')
@@ -51,6 +60,97 @@ const fetchedUserData = async () => {
     isLoading.value = false
   }
 }
+// ============ XỬ LÝ AVATAR ============
+const handleAvatarChange = (e) => {
+  const file = e.target.files[0]
+  if (!file) return
+
+  // Validate loại file
+  if (!file.type.startsWith('image/')) {
+    showMessage('Vui lòng chọn file hình ảnh', 'error')
+    e.target.value = ''
+    return
+  }
+
+  // Validate kích thước (max 5MB)
+  if (file.size > 5 * 1024 * 1024) {
+    showMessage('Ảnh không được vượt quá 5MB', 'error')
+    e.target.value = ''
+    return
+  }
+
+  // Revoke preview cũ
+  if (avatarPreview.value) URL.revokeObjectURL(avatarPreview.value)
+
+  avatarFile.value = file
+  avatarPreview.value = URL.createObjectURL(file)
+}
+
+const uploadAvatar = async () => {
+  if (!avatarFile.value || isUploadingAvatar.value) return
+
+  isUploadingAvatar.value = true
+  try {
+    const token = localStorage.getItem('token')
+    const formData = new FormData()
+    formData.append('avatar', avatarFile.value)
+
+    const res = await axios.post(
+      'http://localhost:3000/api/user/account/avatar',
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+      },
+    )
+
+    // Cập nhật URL từ response
+    if (res.data.avatar) {
+      avatarUrl.value = `http://localhost:3000/uploads/avatars/${res.data.avatar}`
+    }
+
+    // Cập nhật localStorage user
+    const user = JSON.parse(localStorage.getItem('user') || '{}')
+    if (res.data.avatar) user.avatar = res.data.avatar
+    localStorage.setItem('user', JSON.stringify(user))
+
+    // Reset preview
+    if (avatarPreview.value) URL.revokeObjectURL(avatarPreview.value)
+    avatarPreview.value = ''
+    avatarFile.value = null
+    if (avatarInputRef.value) avatarInputRef.value.value = ''
+
+    showMessage('Cập nhật ảnh đại diện thành công!', 'success')
+  } catch (error) {
+    console.error('Lỗi upload avatar:', error)
+    showMessage(error.response?.data?.message || 'Không thể tải ảnh lên', 'error')
+  } finally {
+    isUploadingAvatar.value = false
+  }
+}
+
+const cancelAvatarPreview = () => {
+  if (avatarPreview.value) URL.revokeObjectURL(avatarPreview.value)
+  avatarPreview.value = ''
+  avatarFile.value = null
+  if (avatarInputRef.value) avatarInputRef.value.value = ''
+}
+
+const triggerAvatarInput = () => {
+  if (isUploadingAvatar.value) return
+  avatarInputRef.value?.click()
+}
+
+// Chữ cái đầu của tên làm fallback
+const initials = computed(() => {
+  const name = fullName.value?.trim()
+  if (!name) return '?'
+  const parts = name.split(/\s+/)
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
+})
 
 const handleBack = () => {
   window.history.back()
@@ -63,6 +163,8 @@ const handleLogout = () => {
 
 const confirmLogout = () => {
   localStorage.removeItem('token')
+  localStorage.removeItem('user')
+
   window.location.href = '/login'
 }
 
@@ -104,6 +206,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (messageTimer) clearTimeout(messageTimer)
+  if (avatarPreview.value) URL.revokeObjectURL(avatarPreview.value)
+
 })
 </script>
 
@@ -124,9 +228,8 @@ onBeforeUnmount(() => {
       <div class="account-card">
         <div class="card-header">
           <button @click="handleBack" class="btn-back" title="Quay lại" type="button">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                 fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="19" y1="12" x2="5" y2="12"></line>
               <polyline points="12 19 5 12 12 5"></polyline>
             </svg>
@@ -137,14 +240,56 @@ onBeforeUnmount(() => {
             <p class="card-sub">Quản lý thông tin cá nhân và bảo mật của bạn</p>
           </div>
         </div>
+        <!-- AVATAR SECTION -->
+        <div class="avatar-section" v-if="!isLoading">
+          <div class="avatar-display" @click="triggerAvatarInput">
+            <img v-if="avatarPreview || avatarUrl" :src="avatarPreview || avatarUrl" alt="Avatar" class="avatar-img" />
+            <div v-else class="avatar-fallback">{{ initials }}</div>
+
+            <!-- Overlay khi hover -->
+            <div class="avatar-overlay">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+              <span>Đổi ảnh</span>
+            </div>
+
+            <!-- Loading overlay -->
+            <div v-if="isUploadingAvatar" class="avatar-loading">
+              <div class="spinner-sm-white"></div>
+            </div>
+          </div>
+
+          <!-- Input file ẩn -->
+          <input ref="avatarInputRef" type="file" accept="image/*" class="avatar-input-hidden"
+            @change="handleAvatarChange" :disabled="isUploadingAvatar" />
+
+          <div class="avatar-actions">
+            <button type="button" class="btn-avatar-change" @click="triggerAvatarInput" :disabled="isUploadingAvatar">
+              📷 Chọn ảnh mới
+            </button>
+
+            <template v-if="avatarFile">
+              <button type="button" class="btn-avatar-save" @click="uploadAvatar" :disabled="isUploadingAvatar">
+                <span v-if="isUploadingAvatar" class="spinner-sm"></span>
+                <span>{{ isUploadingAvatar ? 'Đang tải...' : '✓ Lưu ảnh' }}</span>
+              </button>
+              <button type="button" class="btn-avatar-cancel" @click="cancelAvatarPreview"
+                :disabled="isUploadingAvatar">
+                ✕
+              </button>
+            </template>
+          </div>
+
+          <p class="avatar-hint">JPG, PNG, GIF · Tối đa 5MB</p>
+        </div>
 
         <!-- ALERT -->
         <transition name="fade">
-          <div
-            v-if="message"
-            class="account-alert"
-            :class="messageType === 'error' ? 'account-alert-error' : 'account-alert-success'"
-          >
+          <div v-if="message" class="account-alert"
+            :class="messageType === 'error' ? 'account-alert-error' : 'account-alert-success'">
             <span>{{ messageType === 'error' ? '⚠️' : '✅' }} {{ message }}</span>
             <button type="button" @click="message = ''" aria-label="Đóng">✕</button>
           </div>
@@ -163,13 +308,8 @@ onBeforeUnmount(() => {
               <label for="full_name">
                 Họ và tên <span class="required">*</span>
               </label>
-              <input
-                type="text"
-                id="full_name"
-                v-model="fullName"
-                placeholder="Nhập họ tên của bạn"
-                :disabled="isSubmitting"
-              />
+              <input type="text" id="full_name" v-model="fullName" placeholder="Nhập họ tên của bạn"
+                :disabled="isSubmitting" />
             </div>
 
             <div class="form-group">
@@ -183,12 +323,7 @@ onBeforeUnmount(() => {
           <div class="form-row">
             <div class="form-group">
               <label for="date_of_birth">Ngày sinh</label>
-              <input
-                type="date"
-                id="date_of_birth"
-                v-model="dateOfBirth"
-                :disabled="isSubmitting"
-              />
+              <input type="date" id="date_of_birth" v-model="dateOfBirth" :disabled="isSubmitting" />
             </div>
 
             <div class="form-group">
@@ -203,17 +338,17 @@ onBeforeUnmount(() => {
 
           <!-- Link đơn hàng -->
           <RouterLink to="/user/orders" class="btn-orders-link">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                 fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path
+                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+              </path>
               <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
               <line x1="12" y1="22.08" x2="12" y2="12"></line>
             </svg>
             <span>Xem lịch sử đơn hàng đã đặt</span>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                 fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round" class="arrow-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="arrow-icon">
               <line x1="5" y1="12" x2="19" y2="12"></line>
               <polyline points="12 5 19 12 12 19"></polyline>
             </svg>
@@ -222,9 +357,8 @@ onBeforeUnmount(() => {
           <!-- Actions -->
           <div class="form-actions">
             <button type="button" class="btn-danger" :disabled="isSubmitting" @click="handleLogout">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                   fill="none" stroke="currentColor" stroke-width="2"
-                   stroke-linecap="round" stroke-linejoin="round">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                 <polyline points="16 17 21 12 16 7"></polyline>
                 <line x1="21" y1="12" x2="9" y2="12"></line>
@@ -273,6 +407,7 @@ onBeforeUnmount(() => {
   background: var(--bg);
   min-height: 100vh;
 }
+
 .account-wrapper *,
 .account-wrapper *::before,
 .account-wrapper *::after {
@@ -284,6 +419,7 @@ onBeforeUnmount(() => {
   background: #fff;
   border-bottom: 1px solid var(--line);
 }
+
 .account-top-inner {
   max-width: 1100px;
   margin: 0 auto;
@@ -292,6 +428,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
 }
+
 .brand {
   font-size: 24px;
   font-weight: 700;
@@ -299,14 +436,21 @@ onBeforeUnmount(() => {
   color: var(--ink);
   text-decoration: none;
 }
-.brand span { color: var(--brand); }
+
+.brand span {
+  color: var(--brand);
+}
+
 .back-link {
   font-size: 14px;
   font-weight: 500;
   color: var(--muted);
   text-decoration: none;
 }
-.back-link:hover { color: var(--brand); }
+
+.back-link:hover {
+  color: var(--brand);
+}
 
 /* Main */
 .account-main {
@@ -336,6 +480,7 @@ onBeforeUnmount(() => {
   padding-bottom: 20px;
   border-bottom: 1px solid var(--line);
 }
+
 .btn-back {
   display: inline-flex;
   align-items: center;
@@ -353,6 +498,7 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   margin-top: 4px;
 }
+
 .btn-back:hover {
   background: #f0f9ff;
   color: var(--brand);
@@ -360,7 +506,11 @@ onBeforeUnmount(() => {
   transform: translateX(-2px);
 }
 
-.card-titles { flex: 1; min-width: 0; }
+.card-titles {
+  flex: 1;
+  min-width: 0;
+}
+
 .card-title {
   margin: 0 0 4px;
   font-size: 22px;
@@ -368,6 +518,7 @@ onBeforeUnmount(() => {
   letter-spacing: -0.01em;
   color: var(--ink);
 }
+
 .card-sub {
   margin: 0;
   font-size: 14px;
@@ -386,16 +537,19 @@ onBeforeUnmount(() => {
   font-size: 14px;
   font-weight: 500;
 }
+
 .account-alert-error {
   background: #fef2f2;
   border: 1px solid #fecaca;
   color: #b91c1c;
 }
+
 .account-alert-success {
   background: #f0fdf4;
   border: 1px solid #bbf7d0;
   color: #15803d;
 }
+
 .account-alert button {
   background: transparent;
   border: none;
@@ -406,6 +560,7 @@ onBeforeUnmount(() => {
   padding: 2px 6px;
   border-radius: 4px;
 }
+
 .account-alert button:hover {
   opacity: 1;
   background: rgba(0, 0, 0, 0.05);
@@ -417,7 +572,10 @@ onBeforeUnmount(() => {
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
-.form-group { margin-bottom: 18px; }
+
+.form-group {
+  margin-bottom: 18px;
+}
 
 .form-group label {
   display: block;
@@ -427,7 +585,9 @@ onBeforeUnmount(() => {
   color: #34495e;
 }
 
-.required { color: var(--price); }
+.required {
+  color: var(--price);
+}
 
 .badge-disabled {
   font-weight: 500;
@@ -447,15 +607,18 @@ onBeforeUnmount(() => {
   background: #ffffff;
   transition: all 0.2s;
 }
+
 .form-group input::placeholder {
   color: #b6c0cd;
 }
+
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
   border-color: var(--brand);
   box-shadow: 0 0 0 3px rgba(10, 108, 255, 0.12);
 }
+
 .form-group input:disabled {
   background-color: #f5f7fa;
   color: #94a3b8;
@@ -480,8 +643,15 @@ onBeforeUnmount(() => {
   text-decoration: none;
   transition: all 0.2s;
 }
-.btn-orders-link span { flex: 1; }
-.btn-orders-link .arrow-icon { transition: transform 0.2s; }
+
+.btn-orders-link span {
+  flex: 1;
+}
+
+.btn-orders-link .arrow-icon {
+  transition: transform 0.2s;
+}
+
 .btn-orders-link:hover {
   background: var(--brand);
   color: #ffffff;
@@ -489,6 +659,7 @@ onBeforeUnmount(() => {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(10, 108, 255, 0.25);
 }
+
 .btn-orders-link:hover .arrow-icon {
   transform: translateX(4px);
 }
@@ -517,6 +688,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
   transition: all 0.2s;
 }
+
 .btn-primary:disabled,
 .btn-danger:disabled {
   opacity: 0.6;
@@ -528,6 +700,7 @@ onBeforeUnmount(() => {
   background: var(--brand);
   color: white;
 }
+
 .btn-primary:hover:not(:disabled) {
   background: #0850c4;
   transform: translateY(-1px);
@@ -540,6 +713,7 @@ onBeforeUnmount(() => {
   color: var(--price);
   border: 1.5px solid #fecaca;
 }
+
 .btn-danger:hover:not(:disabled) {
   background: #fef2f2;
   border-color: var(--price);
@@ -555,11 +729,13 @@ onBeforeUnmount(() => {
   padding: 60px 20px;
   gap: 14px;
 }
+
 .loading-state p {
   margin: 0;
   color: var(--muted);
   font-size: 14px;
 }
+
 .spinner {
   width: 36px;
   height: 36px;
@@ -568,6 +744,7 @@ onBeforeUnmount(() => {
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
+
 .spinner-sm {
   width: 14px;
   height: 14px;
@@ -577,7 +754,12 @@ onBeforeUnmount(() => {
   animation: spin 0.7s linear infinite;
   display: inline-block;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* Modal */
 .modal-overlay {
@@ -591,6 +773,7 @@ onBeforeUnmount(() => {
   z-index: 100;
   padding: 20px;
 }
+
 .modal-card {
   background: #fff;
   padding: 28px 24px;
@@ -600,26 +783,31 @@ onBeforeUnmount(() => {
   text-align: center;
   box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.25);
 }
+
 .modal-icon {
   font-size: 42px;
   margin-bottom: 8px;
 }
+
 .modal-card h3 {
   margin: 0 0 8px;
   font-size: 18px;
   font-weight: 700;
   color: var(--ink);
 }
+
 .modal-card p {
   margin: 0 0 22px;
   font-size: 14px;
   color: var(--muted);
   line-height: 1.5;
 }
+
 .modal-actions {
   display: flex;
   gap: 10px;
 }
+
 .modal-actions button {
   flex: 1;
   padding: 10px 18px;
@@ -630,54 +818,253 @@ onBeforeUnmount(() => {
   font-family: inherit;
   transition: all 0.2s;
 }
+
 .modal-actions .btn-cancel {
   background: #fff;
   border: 1px solid var(--line);
   color: var(--muted);
 }
+
 .modal-actions .btn-cancel:hover {
   background: var(--bg);
 }
+
 .modal-actions .btn-danger {
   background: var(--price);
   color: #fff;
   border: none;
 }
+
 .modal-actions .btn-danger:hover {
   background: #c9231e;
 }
 
 /* Transition */
 .fade-enter-active,
-.fade-leave-active { transition: opacity 0.25s; }
+.fade-leave-active {
+  transition: opacity 0.25s;
+}
+
 .fade-enter-from,
-.fade-leave-to { opacity: 0; }
+.fade-leave-to {
+  opacity: 0;
+}
+/* Avatar */
+.avatar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 0 28px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 24px;
+}
+
+.avatar-display {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  border: 4px solid #fff;
+  box-shadow: 0 8px 24px -8px rgba(10, 108, 255, 0.3),
+    0 0 0 1px var(--line);
+  transition: transform 0.2s;
+  background: #f1f5f9;
+}
+
+.avatar-display:hover {
+  transform: scale(1.03);
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0a6cff, #0850c4);
+  color: #fff;
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.avatar-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 27, 45, 0.7);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.avatar-display:hover .avatar-overlay {
+  opacity: 1;
+}
+
+.avatar-loading {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 27, 45, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+}
+
+.spinner-sm-white {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.avatar-input-hidden {
+  display: none;
+}
+
+.avatar-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn-avatar-change,
+.btn-avatar-save,
+.btn-avatar-cancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-avatar-change {
+  background: #fff;
+  color: var(--brand);
+  border: 1px solid #bfdbfe;
+}
+
+.btn-avatar-change:hover:not(:disabled) {
+  background: #f0f9ff;
+  border-color: var(--brand);
+  transform: translateY(-1px);
+}
+
+.btn-avatar-save {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+}
+
+.btn-avatar-save:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+}
+
+.btn-avatar-cancel {
+  background: #fff;
+  color: var(--price);
+  border: 1px solid #fecaca;
+  padding: 8px 12px;
+}
+
+.btn-avatar-cancel:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: var(--price);
+}
+
+.btn-avatar-change:disabled,
+.btn-avatar-save:disabled,
+.btn-avatar-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.avatar-hint {
+  margin: 0;
+  font-size: 11.5px;
+  color: #94a3b8;
+  font-weight: 500;
+}
 
 /* Responsive */
 @media (max-width: 640px) {
   .account-main {
     padding: 20px 14px 40px;
   }
+
   .account-card {
     padding: 22px 18px;
     border-radius: 12px;
   }
+
   .card-header {
     flex-direction: column;
     gap: 12px;
   }
-  .btn-back { margin-top: 0; }
-  .card-title { font-size: 19px; }
+
+  .btn-back {
+    margin-top: 0;
+  }
+
+  .card-title {
+    font-size: 19px;
+  }
+
   .form-row {
     grid-template-columns: 1fr;
     gap: 0;
   }
+
   .form-actions {
     flex-direction: column-reverse;
   }
+
   .btn-primary,
   .btn-danger {
     width: 100%;
+  }
+}
+@media (max-width: 640px) {
+  .avatar-section {
+    padding: 18px 0 22px;
+  }
+
+  .avatar-display {
+    width: 96px;
+    height: 96px;
+  }
+
+  .avatar-fallback {
+    font-size: 34px;
   }
 }
 </style>

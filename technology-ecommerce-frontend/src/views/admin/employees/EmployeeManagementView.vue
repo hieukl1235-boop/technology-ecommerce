@@ -29,7 +29,6 @@
           <span>Thêm nhân viên mới</span>
         </button>
       </div>
-
       <!-- Card Bảng Nhân Sự -->
       <div class="card-box shadow-sm">
         <!-- Thanh công cụ & Tìm kiếm -->
@@ -109,7 +108,6 @@
                     {{ (employee.gender == 1 || employee.gender === 'Nam') ? '👨 Nam' : '👩 Nữ' }}
                   </span>
                 </td>
-
                 <!-- Liên hệ (Email & SĐT) -->
                 <td>
                   <div class="contact-box">

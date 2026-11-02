@@ -139,14 +139,40 @@
         </div>
 
         <!-- Nút Submit Gradient -->
-        <button type="submit" class="btn-submit">
-          <span>Đăng Ký Tài Khoản</span>
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ms-2">
+        <button type="submit" class="btn-submit" :disabled="loading">
+          <span>{{ loading ? "Đang gửi OTP..." : "Đăng Ký Tài Khoản" }}</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ms-2">
             <path d="M5 12h14"></path>
             <path d="m12 5 7 7-7 7"></path>
           </svg>
         </button>
       </form>
+      <!-- Form xác minh OTP -->
+      <div v-if="showOtpForm" class="mt-4">
+        <h5 class="text-center">Xác minh email</h5>
+
+        <p class="text-center">
+          Mã OTP đã được gửi đến email {{ form.email }}.
+          Mã có hiệu lực trong 5 phút.
+        </p>
+
+        <form @submit.prevent="verifyRegistrationOtp">
+          <div class="mb-3">
+            <label class="form-label tech-label">Mã OTP</label>
+            <input v-model="otp" type="text" class="tech-input" placeholder="Nhập mã OTP gồm 6 chữ số" maxlength="6"
+              inputmode="numeric" pattern="[0-9]{6}" required>
+          </div>
+
+          <button type="submit" class="btn-submit" :disabled="loading">
+            {{ loading ? "Đang xác minh..." : "Xác minh và đăng ký" }}
+          </button>
+        </form>
+
+        <button type="button" class="btn btn-link w-100 mt-2" @click="showOtpForm = false">
+          Quay lại form đăng ký
+        </button>
+      </div>
 
       <!-- Link chuyển về trang đăng nhập -->
       <div class="text-center mt-4 pt-3 footer-links">
@@ -172,6 +198,9 @@
 <script setup>
 import { ref } from "vue";
 import axios from "axios";
+import { useRouter } from "vue-router";
+
+const router = useRouter();
 
 const form = ref({
   full_name: "",
@@ -183,16 +212,58 @@ const form = ref({
 
 const showPassword = ref(false);
 const message = ref("");
+const loading = ref(false);
+
+const showOtpForm = ref(false);
+const otp = ref("");
 
 const register = async () => {
+  if (loading.value) return;
+
+  loading.value = true;
+  message.value = "";
+
   try {
     const response = await axios.post(
       "http://localhost:3000/api/auth/register",
       form.value
     );
+
     message.value = response.data.message;
+    showOtpForm.value = true;
+    otp.value = "";
   } catch (error) {
-    message.value = error.response?.data?.message || "Đăng ký thất bại";
+    message.value =
+      error.response?.data?.message || "Không thể gửi OTP đăng ký";
+  } finally {
+    loading.value = false;
+  }
+};
+
+const verifyRegistrationOtp = async () => {
+  if (loading.value) return;
+
+  loading.value = true;
+  message.value = "";
+
+  try {
+    const response = await axios.post(
+      "http://localhost:3000/api/auth/verify-registration-otp",
+      {
+        email: form.value.email,
+        otp: otp.value
+      }
+    );
+
+    message.value = response.data.message;
+
+    // Chỉ chuyển trang khi backend xác minh thành công.
+    await router.push("/login");
+  } catch (error) {
+    message.value =
+      error.response?.data?.message || "Xác minh OTP thất bại";
+  } finally {
+    loading.value = false;
   }
 };
 </script>

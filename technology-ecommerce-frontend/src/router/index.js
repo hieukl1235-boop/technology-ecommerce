@@ -1,248 +1,270 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import Login from '../views/auth/Login.vue'
-import Register from '../views/auth/Register.vue'
-import Home from '../views/user/home.vue'
-import AdminHome from '../views/admin/AdminHome.vue'
-import CategoryManager from '../views/admin/CategoryManager.vue'
-import BrandManager from '../views/admin/BrandManager.vue'
-import ProductCreate from '../views/admin/ProductCreate.vue'
-// import EditProduct from '../views/admin/EditProduct.vue'
-import CouponManagement from '../views/admin/CouponManagement.vue'
-
+import LoginView from '../views/auth/Login.vue'
+import RegisterView from '../views/auth/Register.vue'
+import HomeView from '../views/user/HomeView.vue'
+import AdminHomeView from '../views/admin/dashboard/AdminHomeView.vue'
+import CategoryManagerView from '../views/admin/categories/CategoryManagementView.vue'
+import BrandManagerView from '../views/admin/banners/BannerManagementView.vue'
+import CouponManagementView from '../views/admin/coupons/CouponManagementView.vue'
+import ForgotPasswordView from '../views/auth/ForgotPasswordView.vue'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
+
   routes: [
-    // ==========================================
-    // KHÁCH HÀNG & XÁC THỰC
-    // ==========================================
+    {
+      path: '/',
+      redirect: '/home',
+    },
+    //  KHÁCH HÀNG VÀ XÁC THỰC
     {
       path: '/login',
-      name: 'login',
-      component: Login,
+      name: 'auth-login',
+      component: LoginView,
     },
     {
       path: '/register',
-      name: 'register',
-      component: Register,
+      name: 'auth-register',
+      component: RegisterView,
     },
     {
       path: '/home',
-      name: 'home',
-      component: Home,
+      name: 'user-home',
+      component: HomeView,
+    },
+    {
+      path: '/forgot-password',
+      name: 'ForgotPassword',
+      component: ForgotPasswordView,
     },
 
-    // ==========================================
-    // TRANG CHỦ ADMIN DASHBOARD
-    // ==========================================
+    // B. TRANG CHỦ QUẢN TRỊ
     {
       path: '/admin',
       name: 'admin-home',
-      component: AdminHome,
+      component: AdminHomeView,
     },
 
-    // ==========================================
-    // CÁC CHỨC NĂNG QUẢN LÝ (Có hiện nút ở Menu Dashboard)
-    // ==========================================
+    // QUẢN LÝ SẢN PHẨM
     {
       path: '/admin/products',
       name: 'admin-products',
-      component: () => import('../views/admin/product/ProductManagement.vue'),
+      component: () => import('../views/admin/product/ProductManagementView.vue'),
       meta: {
         title: 'Quản lý sản phẩm',
         permission: 'manage_products',
         isMenu: true,
       },
     },
+    //  QUẢN LÝ DANH MỤC
     {
       path: '/admin/categories',
       name: 'admin-categories',
-      component: CategoryManager,
+      component: CategoryManagerView,
       meta: {
         title: 'Quản lý danh mục',
         permission: 'manage_categories',
         isMenu: true,
       },
     },
+
+    //  QUẢN LÝ THƯƠNG HIỆU
     {
       path: '/admin/brands',
       name: 'admin-brands',
-      component: BrandManager,
+      component: BrandManagerView,
       meta: {
         title: 'Quản lý thương hiệu',
         permission: 'manage_brands',
         isMenu: true,
       },
     },
+    // F. QUẢN LÝ NHÀ CUNG CẤP
     {
       path: '/admin/suppliers',
       name: 'admin-suppliers',
-      component: () => import('../views/admin/Test.vue'),
+      component: () => import('../views/admin/suppliers/SupplierManagementView.vue'),
       meta: {
         title: 'Quản lý nhà cung cấp',
         permission: 'manage_suppliers',
         isMenu: true,
       },
     },
+    // G. QUẢN LÝ NHÂN VIÊN
     {
       path: '/admin/employees',
       name: 'admin-employees',
-      component: () => import('../views/admin/EmployeeManager.vue'),
+      component: () => import('../views/admin/employees/EmployeeManagementView.vue'),
       meta: {
         title: 'Quản lý nhân viên',
         permission: 'manage_employees',
         isMenu: true,
       },
     },
+    // QUẢN LÝ NGƯỜI DÙNG
     {
       path: '/admin/users',
       name: 'admin-users',
-      component: () => import('../views/admin/UserManager.vue'),
+      component: () => import('../views/admin/customers/CustomerManagementView.vue'),
       meta: {
         title: 'Quản lý người dùng',
         permission: 'manage_users',
         isMenu: true,
       },
     },
+    // QUẢN LÝ NHẬP HÀNG VÀ TỒN KHO
     {
       path: '/admin/purchases',
       name: 'admin-purchases',
-      component: () => import('../views/admin/PurchaseReceiptTest.vue'),
+      component: () => import('../views/admin/inventory/PurchaseReceiptView.vue'),
       meta: {
         title: 'Quản lý đơn nhập hàng',
         permission: 'manage_inventory',
         isMenu: true,
       },
     },
+    //  QUẢN LÝ MÃ GIẢM GIÁ
     {
       path: '/admin/coupons',
-      component: CouponManagement,
+      name: 'admin-coupons',
+      component: CouponManagementView,
       meta: {
-        title: 'Quản lí vourcher',
-        isMenu: true,
+        title: 'Quản lý voucher',
         permission: 'manage_coupons',
+        isMenu: true,
       },
     },
+    // K. QUẢN LÝ BANNER
     {
       path: '/admin/banners',
-      component: () => import('../views/admin/BannerManager.vue'),
+      name: 'admin-banners',
+      component: () => import('../views/admin/brands/BrandManagementView.vue'),
       meta: {
-        title: 'Quản lí banner',
-        isMenu: true,
+        title: 'Quản lý banner',
         permission: 'manage_banners',
+        isMenu: true,
       },
     },
+    // L. QUẢN LÝ ĐƠN HÀNG
     {
       path: '/admin/orders',
-      component: () => import('../views/admin/AdminOrders.vue'),
+      name: 'admin-orders',
+      component: () => import('../views/admin/orders/AdminOrdersView.vue'),
       meta: {
-        title: 'Quản lí đơn hàng',
-        isMenu: true,
+        title: 'Quản lý đơn hàng',
         permission: 'manage_orders',
+        isMenu: true,
       },
     },
     {
       path: '/user/orders',
-      name: 'UserOrders',
+      name: 'user-orders',
       component: () => import('../views/user/UserOrdersView.vue'),
     },
-
-    // ==========================================
-    // CÁC TRANG CON (Thêm / Sửa - Không hiện nút ở Menu nhưng vẫn kiểm tra quyền)
-    // ==========================================
     {
-      path: '/admin/products/create',
-      name: 'admin-product-create',
-      component: ProductCreate,
-      meta: { permission: 'manage_products' },
+      path: '/user/orders/:orderCode',
+      name: 'user-order-detail',
+      component: () => import('../views/user/OrderDetail.vue'),
+      props: true,
     },
+    {
+      path: '/order/:orderCode',
+      name: 'order-detail',
+      component: () => import('../views/user/UserOrderDetailView.vue'),
+    },
+
+    //  QUẢN LÝ GIAO HÀNG
+    {
+      path: '/ship',
+      name: 'shipper-orders',
+      component: () => import('../views/shipper/ShipperOrdersView.vue'),
+      meta: {
+        title: 'Quản lý giao hàng',
+        permission: 'manage_delivery',
+        isMenu: true,
+      },
+    },
+    // QUẢN LÝ THỐNG KÊ
+    {
+      path: '/admin/Dashboard',
+      name: 'admin-dashboard',
+      component: () => import('../views/admin/statistics/StatisticsView.vue'),
+      meta: {
+        title: 'Thống kê',
+        permission: 'view_statistics',
+        isMenu: true,
+      },
+    },
+    // GIỎ HÀNG VÀ THANH TOÁN
     {
       path: '/cart',
-      name: 'cart',
-      component: () => import('../views/user/cart.vue'),
-    },
-    {
-      path: '/account',
-      name: 'account',
-      component: () => import('../views/user/account.vue'),
+      name: 'user-cart',
+      component: () => import('../views/user/CartView.vue'),
     },
     {
       path: '/checkout',
-      name: 'checkout',
-      component: () => import('../views/user/checkout.vue'),
+      name: 'user-checkout',
+      component: () => import('../views/user/CheckoutView.vue'),
     },
+
+    // QUẢN LÝ TÀI KHOẢN
     {
-      path: '/ship',
-      name: 'ship',
-      component: () => import('../views/shipper/ShipperOrders.vue'),
-      meta: {
-        title: 'Shipper',
-        isMenu: true,
-        permission: 'manage_delivery',
-      },
+      path: '/account',
+      name: 'user-account',
+      component: () => import('../views/user/AccountView.vue'),
     },
-    { path: '/product/:id', component: () => import('../views/user/Productdetail.vue') },
+    // CHI TIẾT SẢN PHẨM
+    {
+      path: '/product/:id',
+      name: 'product-detail',
+      component: () => import('../views/user/ProductDetailView.vue'),
+    },
+    // CHAT VÀ TƯ VẤN KHÁCH HÀNG
     {
       path: '/chat',
-      component: () => import('../views/user/chat.vue'),
+      name: 'user-chat',
+      component: () => import('../views/user/UserChatView.vue'),
     },
     {
       path: '/admin/chat',
-      component: () => import('../views/admin/Chat.vue'),
+      name: 'admin-chat',
+      component: () => import('../views/admin/chat/AdminChatView.vue'),
       meta: {
         title: 'Tư vấn khách hàng',
-        isMenu: true,
         permission: 'manage_chat',
+        isMenu: true,
       },
     },
+    // QUẢN LÝ THÔNG BÁO
     {
       path: '/admin/notification',
-      component: () => import('../views/admin/Adminnotification.vue'),
+      name: 'admin-notifications',
+      component: () => import('../views/admin/notifications/AdminNotificationView.vue'),
       meta: {
-        title: 'Quản lí thông báo',
-        isMenu: true,
+        title: 'Quản lý thông báo',
         permission: 'manage_chat',
+        isMenu: true,
       },
     },
     {
       path: '/notifications',
-      component: () => import('../views/user/UserNotification.vue'),
-    },
-    {
-      path: '/user/orders/:orderCode',
-      name: 'OrderDetail',
-      component: () => import('../views/user/OrderDetail.vue'),
-      props: true, // (Tùy chọn) Cho phép truyền params trực tiếp vào props của component nếu muốn
-    },
-    {
-      path: '/admin/Dashboard',
-      component: () => import('../views/admin/AdminDashboard.vue'),
-      meta: {
-        title: 'Thống kê',
-        isMenu: true,
-        permission: 'view_statistics',
-      },
+      name: 'user-notifications',
+      component: () => import('../views/user/UserNotificationView.vue'),
     },
   ],
 })
-// ==========================================
 
-// ==========================================
-// BẢO VỆ ĐƯỜNG DẪN (Chặn gõ URL trái phép)
-// ==========================================
-// ==========================================
-// BẢO VỆ ĐƯỜNG DẪN (Chặn gõ URL trái phép)
-// ==========================================
-router.beforeEach((to, from) => {
+// KIỂM TRA QUYỀN TRUY CẬP
+router.beforeEach((to) => {
   const user = JSON.parse(localStorage.getItem('user') || '{}')
-  const requiredPermission = to.meta?.permission
-
-  // Nếu trang này yêu cầu quyền mà tài khoản không có
+  const requiredPermission = to.meta.permission
+  // Nếu trang yêu cầu quyền mà người dùng không có
   if (requiredPermission && !user.permissions?.includes(requiredPermission)) {
     alert('Bạn không có quyền truy cập vào mục này!')
-    return '/admin' // Thay vì next('/admin'), ta dùng return trực tiếp
-  }
 
-  // Nếu hợp lệ, không cần return gì cả (hoặc có thể return true để cho phép qua)
+    return '/admin'
+  }
+  // Không return false hoặc đường dẫn khác nghĩa là cho phép tiếp tục
 })
+
 
 export default router

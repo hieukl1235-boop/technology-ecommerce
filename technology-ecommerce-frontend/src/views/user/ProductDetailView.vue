@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 
-const API = 'http://localhost:3000/api'
+const API = 'http://localhost:3000/api/products'
 const UPLOADS = 'http://localhost:3000/uploads'
 
 const route = useRoute()
@@ -55,7 +55,7 @@ const getCollaborativeRecommend = async () => {
     // Lấy thông tin chi tiết từng sản phẩm để giao diện có dữ liệu hiển thị
     collaborativeProducts.value = await Promise.all(
       collaborativeRecommend.value.map(async (item) => {
-        const detailRes = await axios.get(`http://localhost:3000/api/${item.product_id}`)
+        const detailRes = await axios.get(`http://localhost:3000/api/products/${item.product_id}`)
 
         return {
           ...detailRes.data,
@@ -130,7 +130,7 @@ const getProductRecommend = async () => {
   try {
     const results = await Promise.all(
       recommend.value.map(async (item) => {
-        const res = await axios.get(`http://localhost:3000/api/${item.product_id}`)
+        const res = await axios.get(`http://localhost:3000/api/products/${item.product_id}`)
         return res.data
       }),
     )
@@ -290,12 +290,49 @@ const confirmDeleteReview = async () => {
     showToast(error.response?.data?.message || 'Xóa đánh giá thất bại', 'error')
   }
 }
+// --- GỢI Ý HYBRID (KẾT HỢP) ---
+const hybridRecommend = ref([])
+const hybridProducts = ref([])
+const isLoadingHybrid = ref(false)
+
+const getHybridRecommend = async () => {
+  isLoadingHybrid.value = true
+  try {
+    const userId = currentUser?.id
+    const url = userId
+      ? `http://localhost:5000/api/products/${route.params.id}/hybrid-recommendations?user_id=${userId}&top_n=4`
+      : `http://localhost:5000/api/products/${route.params.id}/hybrid-recommendations?top_n=4`
+
+    const res = await axios.get(url)
+    hybridRecommend.value = res.data.recommendations || []
+
+    // Lấy chi tiết từng sản phẩm từ backend chính
+    hybridProducts.value = await Promise.all(
+      hybridRecommend.value.map(async (item) => {
+        try {
+          const detailRes = await axios.get(`http://localhost:3000/api/products/${item.product_id}`)
+          return detailRes.data
+        } catch (err) {
+          console.error(`Lỗi lấy chi tiết SP ${item.product_id}:`, err.message)
+          return null
+        }
+      }),
+    ).then((arr) => arr.filter(Boolean)) // Loại bỏ item null
+  } catch (error) {
+    console.error('Lỗi tải gợi ý hybrid:', error.message)
+    hybridRecommend.value = []
+    hybridProducts.value = []
+  } finally {
+    isLoadingHybrid.value = false
+  }
+}
 
 onMounted(() => {
   fetchProduct()
   fetchReviews()
   getRecommend()
   getCollaborativeRecommend()
+  getHybridRecommend()
 })
 
 onBeforeUnmount(() => {
@@ -312,11 +349,14 @@ watch(
     productRecommend.value = []
     collaborativeRecommend.value = []
     collaborativeProducts.value = []
+    hybridRecommend.value = [] // 👈 reset
+    hybridProducts.value = [] // 👈 reset
 
     fetchProduct()
     fetchReviews()
     getRecommend()
     getCollaborativeRecommend()
+    getHybridRecommend() // 👈 gọi lại
   },
 )
 </script>
@@ -334,23 +374,14 @@ watch(
     </header>
 
     <main class="pd-main">
-      <RouterLink to="/home" class="btn-back">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
+     <button class="btn-back" @click="$router.back()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="19" y1="12" x2="5" y2="12"></line>
           <polyline points="12 19 5 12 12 5"></polyline>
         </svg>
-        <span>Quay về trang chủ</span>
-      </RouterLink>
+        <span>Quay lại trang trước</span>
+      </button>
 
       <!-- LOADING -->
       <div v-if="loading" class="state-box">
@@ -608,7 +639,11 @@ watch(
               <article v-for="r in filteredReviews" :key="r.id" class="review-item">
                 <div class="review-head">
                   <div class="review-user">
-                    <div class="avatar">{{ (r.user_name || '?').charAt(0).toUpperCase() }}</div>
+                   <div class="avatar">
+                      <img v-if="r.avatar" :src="`http://localhost:3000/uploads/avatars/${r.avatar}`" alt=""
+                        class="avatar-img" />
+                      <span v-else>{{ (r.user_name || '?').charAt(0).toUpperCase() }}</span>
+                    </div>
                     <div class="user-info">
                       <span class="user-name">{{ r.user_name }}</span>
                       <span class="star-text">{{ stars(r.rating) }}</span>
@@ -729,10 +764,11 @@ watch(
             </RouterLink>
           </div>
         </section>
-        <section class="section-block" v-if="productRecommend.length > 0">
+        <!-- <section class="section-block" v-if="productRecommend.length > 0">
+          
           <h2 class="section-title">
             <span class="section-icon">🎯</span>
-            Khách hàng mua sản phẩm này cũng thường chọn
+            Có thể bạn quan tâm
           </h2>
 
           <div class="related-grid">
@@ -783,7 +819,76 @@ watch(
               </div>
             </RouterLink>
           </div>
+        </section> -->
+        <section class="section-block" v-if="isLoadingHybrid || hybridProducts.length > 0">
+          <h2 class="section-title">
+            <span class="section-icon">🔥</span>
+            Gợi ý tốt nhất cho bạn
+            <span class="hybrid-badge">AI Hybrid</span>
+          </h2>
+
+          <p class="hybrid-sub">
+            Kết hợp phân tích nội dung, hành vi mua hàng và người dùng tương tự
+          </p>
+
+          <!-- Loading -->
+          <div v-if="isLoadingHybrid" class="related-loading">
+            <div class="spinner"></div>
+            <p>Đang phân tích gợi ý...</p>
+          </div>
+
+          <!-- Grid -->
+          <div v-else class="related-grid">
+            <RouterLink
+              v-for="hp in hybridProducts"
+              :key="hp.id"
+              :to="`/product/${hp.id}`"
+              class="related-card"
+            >
+              <div class="related-img-box">
+                <img
+                  v-if="hp.main_image"
+                  :src="`${UPLOADS}/products/${hp.main_image}`"
+                  :alt="hp.name"
+                  class="related-img"
+                  loading="lazy"
+                />
+                <div v-else class="related-img related-img-empty">📦</div>
+              </div>
+
+              <div class="related-info">
+                <h3 class="related-name" :title="hp.name">{{ hp.name }}</h3>
+
+                <div class="related-price" v-if="hp.variants && hp.variants.length">
+                  <template
+                    v-if="
+                      hp.variants[0].sale_price &&
+                      Number(hp.variants[0].sale_price) < Number(hp.variants[0].selling_price)
+                    "
+                  >
+                    <span class="related-price-sale">
+                      {{ Number(hp.variants[0].sale_price).toLocaleString('vi-VN') }}đ
+                    </span>
+                    <span class="related-price-origin">
+                      {{ Number(hp.variants[0].selling_price).toLocaleString('vi-VN') }}đ
+                    </span>
+                  </template>
+                  <template v-else>
+                    <span class="related-price-sale">
+                      {{ Number(hp.variants[0].selling_price).toLocaleString('vi-VN') }}đ
+                    </span>
+                  </template>
+                </div>
+
+                <span v-if="hp.brand_name" class="related-brand">
+                  {{ hp.brand_name }}
+                </span>
+              </div>
+            </RouterLink>
+          </div>
         </section>
+
+
       </template>
     </main>
 
@@ -1820,6 +1925,32 @@ watch(
   text-align: center;
   box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.25);
   animation: slideUp 0.25s ease-out;
+}
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+  overflow: hidden;
+  /* keeps image inside the circle */
+  position: relative;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* fills the circle without distortion */
+  border-radius: 50%;
+  display: block;
 }
 @keyframes slideUp {
   from {

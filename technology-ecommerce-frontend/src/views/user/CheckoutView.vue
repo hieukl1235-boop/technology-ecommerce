@@ -293,7 +293,7 @@ const handleApplyCoupon = async () => {
     console.error('Lỗi áp dụng mã:', error)
     alert(
       error.response?.data?.message ||
-        'Mã giảm giá không hợp lệ hoặc không áp dụng cho sản phẩm này!',
+      'Mã giảm giá không hợp lệ hoặc không áp dụng cho sản phẩm này!',
     )
   }
 }
@@ -399,24 +399,18 @@ onMounted(() => {
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h2 class="mb-0 fw-bold">Thanh toán</h2>
       <div class="d-flex gap-2">
-        <button class="btn btn-outline-secondary btn-sm" @click="handleCancel">← Quay lại</button>
+        <button class="btn btn-outline-secondary btn-sm" @click="handleBack">← Quay lại</button>
         <!-- <button class="btn btn-outline-danger btn-sm" @click="handleCancel">
           Hủy
         </button> -->
       </div>
     </div>
 
-    <!-- Thông báo lỗi -->
-    <div v-if="message" class="alert alert-danger alert-dismissible fade show" role="alert">
-      {{ message }}
-      <button type="button" class="btn-close" @click="message = ''"></button>
-    </div>
+
 
     <!-- ========== ĐỊA CHỈ GIAO HÀNG ========== -->
     <div class="card shadow-sm border-0 mb-4">
-      <div
-        class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center"
-      >
+      <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center">
         <span>Địa chỉ giao hàng</span>
         <button class="btn btn-success btn-sm" @click="showModal = true">+ Thêm địa chỉ mới</button>
       </div>
@@ -425,19 +419,10 @@ onMounted(() => {
           Chưa có địa chỉ nào được lưu.
         </div>
 
-        <div
-          v-for="addr in addresses"
-          :key="addr.id"
-          class="form-check border rounded-3 p-3 mb-2"
-          :class="{ 'border-success bg-success bg-opacity-10': selectedAddressId === addr.id }"
-        >
-          <input
-            class="form-check-input"
-            type="radio"
-            :id="'addr-' + addr.id"
-            :value="addr.id"
-            v-model="selectedAddressId"
-          />
+        <div v-for="addr in addresses" :key="addr.id" class="form-check border rounded-3 p-3 mb-2"
+          :class="{ 'border-success bg-success bg-opacity-10': selectedAddressId === addr.id }">
+          <input class="form-check-input" type="radio" :id="'addr-' + addr.id" :value="addr.id"
+            v-model="selectedAddressId" />
           <label class="form-check-label w-100" :for="'addr-' + addr.id" style="cursor: pointer">
             <div class="d-flex justify-content-between align-items-start">
               <div>
@@ -448,10 +433,7 @@ onMounted(() => {
                   {{ addr.province }}
                 </p>
               </div>
-              <button
-                class="btn btn-outline-danger btn-sm"
-                @click.stop="handleDeleteAddress(addr.id)"
-              >
+              <button class="btn btn-outline-danger btn-sm" @click.stop="handleDeleteAddress(addr.id)">
                 Xóa
               </button>
             </div>
@@ -461,12 +443,7 @@ onMounted(() => {
     </div>
 
     <!-- ========== MODAL THÊM ĐỊA CHỈ ========== -->
-    <div
-      v-if="showModal"
-      class="modal d-block"
-      tabindex="-1"
-      style="background: rgba(0, 0, 0, 0.5)"
-    >
+    <div v-if="showModal" class="modal d-block" tabindex="-1" style="background: rgba(0, 0, 0, 0.5)">
       <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
@@ -476,21 +453,12 @@ onMounted(() => {
           <div class="modal-body">
             <div class="mb-3">
               <label class="form-label">Tên người nhận</label>
-              <input
-                type="text"
-                class="form-control"
-                v-model="newAddress.recipient_name"
-                placeholder="Tên người nhận"
-              />
+              <input type="text" class="form-control" v-model="newAddress.recipient_name"
+                placeholder="Tên người nhận" />
             </div>
             <div class="mb-3">
               <label class="form-label">Số điện thoại</label>
-              <input
-                type="text"
-                class="form-control"
-                v-model="newAddress.phone"
-                placeholder="Số điện thoại"
-              />
+              <input type="text" class="form-control" v-model="newAddress.phone" placeholder="Số điện thoại" />
             </div>
             <div class="mb-3">
               <label class="form-label">Tỉnh/Thành phố</label>
@@ -501,34 +469,22 @@ onMounted(() => {
             </div>
             <div class="mb-3">
               <label class="form-label">Quận/Huyện</label>
-              <select
-                class="form-select"
-                v-model="selectedDistrictCode"
-                :disabled="!selectedProvinceCode"
-              >
+              <select class="form-select" v-model="selectedDistrictCode" :disabled="!selectedProvinceCode">
                 <option value="" disabled>-- Chọn Quận/Huyện --</option>
                 <option v-for="d in districts" :key="d.code" :value="d.code">{{ d.name }}</option>
               </select>
             </div>
             <div class="mb-3">
               <label class="form-label">Phường/Xã</label>
-              <select
-                class="form-select"
-                v-model="selectedWardCode"
-                :disabled="!selectedDistrictCode"
-              >
+              <select class="form-select" v-model="selectedWardCode" :disabled="!selectedDistrictCode">
                 <option value="" disabled>-- Chọn Phường/Xã --</option>
                 <option v-for="w in wards" :key="w.code" :value="w.code">{{ w.name }}</option>
               </select>
             </div>
             <div class="mb-3">
               <label class="form-label">Địa chỉ cụ thể</label>
-              <input
-                type="text"
-                class="form-control"
-                v-model="newAddress.specific_address"
-                placeholder="Số nhà, tên đường..."
-              />
+              <input type="text" class="form-control" v-model="newAddress.specific_address"
+                placeholder="Số nhà, tên đường..." />
             </div>
           </div>
           <div class="modal-footer">
@@ -550,24 +506,13 @@ onMounted(() => {
         </div>
 
         <div v-else>
-          <div
-            v-for="item in checkoutItems"
-            :key="item.variant_id"
-            class="d-flex justify-content-between align-items-center py-3 border-bottom"
-          >
+          <div v-for="item in checkoutItems" :key="item.variant_id"
+            class="d-flex justify-content-between align-items-center py-3 border-bottom">
             <div class="d-flex gap-3 align-items-center">
-              <img
-                v-if="item.image"
-                :src="`http://localhost:3000/uploads/variants/${item.image}`"
-                alt="Product"
-                class="rounded border"
-                style="width: 56px; height: 56px; object-fit: cover"
-              />
-              <div
-                v-else
-                class="bg-light rounded border d-flex align-items-center justify-content-center text-muted"
-                style="width: 56px; height: 56px"
-              >
+              <img v-if="item.image" :src="`http://localhost:3000/uploads/variants/${item.image}`" alt="Product"
+                class="rounded border" style="width: 56px; height: 56px; object-fit: cover" />
+              <div v-else class="bg-light rounded border d-flex align-items-center justify-content-center text-muted"
+                style="width: 56px; height: 56px">
                 📦
               </div>
               <div>
@@ -593,12 +538,7 @@ onMounted(() => {
           <div class="mt-4 p-3 border border-dashed rounded-3 bg-light">
             <h6 class="fw-semibold mb-3">Mã giảm giá</h6>
             <div class="input-group mb-3">
-              <input
-                type="text"
-                class="form-control"
-                v-model="couponCode"
-                placeholder="Nhập mã giảm giá..."
-              />
+              <input type="text" class="form-control" v-model="couponCode" placeholder="Nhập mã giảm giá..." />
               <button class="btn btn-primary" type="button" @click="handleApplyCoupon">
                 Áp dụng
               </button>
@@ -609,59 +549,49 @@ onMounted(() => {
               Không có mã giảm giá nào.
             </div>
             <div class="d-flex flex-column gap-2" style="max-height: 160px; overflow-y: auto">
-              
-<div
-  v-for="c in availableCoupons"
-  :key="c.id"
-  class="d-flex justify-content-between align-items-center p-2 bg-white border rounded"
->
-  <div>
-    <strong class="text-primary">{{ c.code }}</strong>
-    <span class="small ms-1">{{ c.name }}</span>
 
-    <p class="mb-0 small text-muted">
-      Giảm:
-      {{
-        Number(c.discount_type) === 1
-          ? c.discount_value + '%'
-          : Number(c.discount_value).toLocaleString('vi-VN') + ' đ'
-      }}
-    </p>
+              <div v-for="c in availableCoupons" :key="c.id"
+                class="d-flex justify-content-between align-items-center p-2 bg-white border rounded">
+                <div>
+                  <strong class="text-primary">{{ c.code }}</strong>
+                  <span class="small ms-1">{{ c.name }}</span>
 
-    <p class="mb-0 small text-muted">
-      Đơn tối thiểu:
-      {{ Number(c.min_order_value || 0).toLocaleString('vi-VN') }} đ
-    </p>
-    <p class="mb-0 small">
-  Áp dụng cho:
-  <span v-if="c.categories?.length">
-    {{ c.categories.map(category => category.name).join(', ') }}
-  </span>
-  <span v-else class="text-muted">
-    Tất cả danh mục
-  </span>
-</p>
+                  <p class="mb-0 small text-muted">
+                    Giảm:
+                    {{
+                      Number(c.discount_type) === 1
+                        ? c.discount_value + '%'
+                        : Number(c.discount_value).toLocaleString('vi-VN') + ' đ'
+                    }}
+                  </p>
 
-    <p
-      v-if="!canApplyCoupon(c)"
-      class="mb-0 small text-danger"
-    >
-      Cần mua thêm
-      {{
-        (Number(c.min_order_value || 0) - subTotal).toLocaleString('vi-VN')
-      }}
-      đ để sử dụng mã
-    </p>
-  </div>
+                  <p class="mb-0 small text-muted">
+                    Đơn tối thiểu:
+                    {{ Number(c.min_order_value || 0).toLocaleString('vi-VN') }} đ
+                  </p>
+                  <p class="mb-0 small">
+                    Áp dụng cho:
+                    <span v-if="c.categories?.length">
+                      {{c.categories.map(category => category.name).join(', ')}}
+                    </span>
+                    <span v-else class="text-muted">
+                      Tất cả danh mục
+                    </span>
+                  </p>
 
-  <button
-    class="btn btn-success btn-sm"
-    :disabled="!canApplyCoupon(c)"
-    @click="selectCoupon(c.code)"
-  >
-    {{ canApplyCoupon(c) ? 'Dùng mã' : 'Chưa đủ điều kiện' }}
-  </button>
-</div>
+                  <p v-if="!canApplyCoupon(c)" class="mb-0 small text-danger">
+                    Cần mua thêm
+                    {{
+                      (Number(c.min_order_value || 0) - subTotal).toLocaleString('vi-VN')
+                    }}
+                    đ để sử dụng mã
+                  </p>
+                </div>
+
+                <button class="btn btn-success btn-sm" :disabled="!canApplyCoupon(c)" @click="selectCoupon(c.code)">
+                  {{ canApplyCoupon(c) ? 'Dùng mã' : 'Chưa đủ điều kiện' }}
+                </button>
+              </div>
 
             </div>
 
@@ -677,7 +607,7 @@ onMounted(() => {
               Tạm tính: {{ subTotal.toLocaleString('vi-VN') }} đ
             </p>
             <p class="mb-1 text-muted">
-              Phí vận chuyển: 
+              Phí vận chuyển:
               <span v-if="shippingFee === 0" class="text-success fw-semibold">Miễn phí (Đơn trên 500k)</span>
               <span v-else>{{ shippingFee.toLocaleString('vi-VN') }} đ</span>
             </p>
@@ -703,21 +633,11 @@ onMounted(() => {
           Đang tải phương thức thanh toán...
         </div>
 
-        <div
-          v-for="method in paymentMethods"
-          :key="method.id"
-          class="form-check border rounded-3 p-3 mb-2"
-          :class="{
-            'border-primary bg-primary bg-opacity-10': selectedPaymentMethodId === method.id,
-          }"
-        >
-          <input
-            class="form-check-input"
-            type="radio"
-            :id="'method-' + method.id"
-            :value="method.id"
-            v-model="selectedPaymentMethodId"
-          />
+        <div v-for="method in paymentMethods" :key="method.id" class="form-check border rounded-3 p-3 mb-2" :class="{
+          'border-primary bg-primary bg-opacity-10': selectedPaymentMethodId === method.id,
+        }">
+          <input class="form-check-input" type="radio" :id="'method-' + method.id" :value="method.id"
+            v-model="selectedPaymentMethodId" />
           <label class="form-check-label" :for="'method-' + method.id" style="cursor: pointer">
             <strong>{{ method.name }}</strong>
             <p class="mb-0 small text-muted">{{ method.description }}</p>
@@ -727,9 +647,7 @@ onMounted(() => {
     </div>
 
     <!-- ========== NÚT HÀNH ĐỘNG ========== -->
-    <div
-      class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3 mt-2"
-    >
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3 mt-2">
       <div class="d-flex gap-2">
         <!-- <button class="btn btn-outline-secondary" @click="handleBack">
           ← Quay lại
@@ -740,17 +658,25 @@ onMounted(() => {
         ĐẶT HÀNG NGAY
       </button>
     </div>
+    <!-- Thông báo lỗi -->
+    <div v-if="message" class="alert alert-danger alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" @click="message = ''"></button>
+    </div>
   </div>
+
 </template>
 
 <style scoped>
 .border-dashed {
   border-style: dashed !important;
 }
+
 .form-check-input:checked {
   background-color: #198754;
   border-color: #198754;
 }
+
 .card {
   transition: box-shadow 0.2s ease;
 }

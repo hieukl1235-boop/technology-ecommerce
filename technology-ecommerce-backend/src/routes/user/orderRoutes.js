@@ -12,4 +12,5 @@ router.post("/", authMiddleware.authenticateUser,OrderController.placeOrder);
 router.get("/vnpay_return", OrderController.vnpayReturn);
 router.patch("/:orderCode/cancel",authMiddleware.authenticateUser, OrderController.cancelMyOrder);
 router.get("/:orderCode", authMiddleware.authenticateUser, OrderController.getOrderDetail);
+router.get("/:orderCode/getVariant", OrderController.getVariant);
 module.exports = router;
