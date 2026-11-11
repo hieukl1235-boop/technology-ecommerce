@@ -364,15 +364,6 @@ watch(
 <template>
   <div class="pd-page">
     <!-- HEADER -->
-    <header class="pd-top">
-      <div class="pd-top-inner">
-        <RouterLink to="/home" class="brand" aria-label="TechStore - Trang chủ">
-          Tech<span>Store</span>
-        </RouterLink>
-        <RouterLink to="/cart" class="cart-link"> 🛒 Giỏ hàng </RouterLink>
-      </div>
-    </header>
-
     <main class="pd-main">
      <button class="btn-back" @click="$router.back()">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"

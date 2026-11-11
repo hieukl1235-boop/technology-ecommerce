@@ -200,15 +200,6 @@ onBeforeUnmount(() => {
 <template>
   <div class="chat-page">
     <!-- HEADER -->
-    <header class="chat-top">
-      <div class="chat-top-inner">
-        <RouterLink to="/home" class="brand" aria-label="TechStore - Trang chủ">
-          Tech<span>Store</span>
-        </RouterLink>
-        <RouterLink to="/home" class="back-link">← Tiếp tục mua sắm</RouterLink>
-      </div>
-    </header>
-
     <main class="chat-main">
       <!-- PAGE HEADER -->
       <div class="page-head">

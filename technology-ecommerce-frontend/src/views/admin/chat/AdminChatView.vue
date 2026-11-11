@@ -198,22 +198,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="chat-page">
-    <header class="page-header">
-      <button class="back-button" type="button" @click="goBack">
-        <span class="back-icon">←</span>
-        Quay lại
-      </button>
-
-      <div class="header-title">
-        <div class="header-icon">✉</div>
-        <div>
-          <h1>Hỗ trợ khách hàng</h1>
-          <p>Quản lý và phản hồi tin nhắn khách hàng</p>
-        </div>
-      </div>
-    </header>
-
+  <div >
+    
     <p v-if="errorMessage" class="error-message" role="alert">
       {{ errorMessage }}
       <button type="button" @click="errorMessage = ''">×</button>

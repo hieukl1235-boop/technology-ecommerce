@@ -1,20 +1,9 @@
 <template>
-  <div class="product-page-wrapper">
+  <div class="product-page">
     <!-- HEADER -->
     <div class="page-header">
-      <div class="header-left">
-        <button class="btn-back" @click="goBack" title="Quay lại">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-               fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12"></line>
-            <polyline points="12 19 5 12 12 5"></polyline>
-          </svg>
-          <span>Quay lại</span>
-        </button>
+      <div class="header-left">      
         <div class="header-titles">
-          <div class="brand-tag">E-COMMERCE CATALOG</div>
-          <h1 class="page-title">Quản Lý Sản Phẩm</h1>
           <p class="page-sub">
             Tổng cộng <b>{{ products.length }}</b> sản phẩm •
             Hiển thị <b>{{ filteredProducts.length }}</b> kết quả
@@ -160,17 +149,7 @@ const handleToggleStatus = async (product) => {
 </script>
 
 <style scoped>
-.product-page-wrapper {
-  min-height: 100vh;
-  width: 100%;
-  background-color: #f8fafc;
-  background-image:
-    linear-gradient(rgba(226, 232, 240, 0.6) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(226, 232, 240, 0.6) 1px, transparent 1px);
-  background-size: 32px 32px;
-  padding: 30px 40px;
-  box-sizing: border-box;
-}
+
 
 /* ---- HEADER ---- */
 .page-header {
@@ -336,7 +315,10 @@ const handleToggleStatus = async (product) => {
   cursor: pointer;
   transition: all 0.2s ease;
 }
-
+.product-page {
+  width: 100%;
+  box-sizing: border-box;
+}
 .btn-retry:hover {
   background: #0369a1;
   box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
@@ -345,9 +327,7 @@ const handleToggleStatus = async (product) => {
 
 /* ---- RESPONSIVE ---- */
 @media (max-width: 768px) {
-  .product-page-wrapper {
-    padding: 20px 16px;
-  }
+  
   .page-title {
     font-size: 1.4rem;
   }

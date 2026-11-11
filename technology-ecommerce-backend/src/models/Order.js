@@ -5,7 +5,7 @@ const OrderModel = {
   async getAllOrders() {
     const query = `
       SELECT 
-        o.*,
+        o.*,e.full_name AS shipper_name,e.avatar AS shipper_avatar,
         dp.image_url AS delivery_proof_id, -- 🟢 Lấy image_url từ bảng delivery_proofs và map đúng tên mà Frontend đang mong đợi
         json_agg(
           json_build_object(
@@ -21,7 +21,8 @@ const OrderModel = {
       LEFT JOIN order_details od ON o.order_code = od.order_code
       LEFT JOIN product_variants pv ON od.variant_id = pv.id
       LEFT JOIN products p ON pv.product_id = p.id
-      GROUP BY o.order_code, dp.image_url -- 🟢 Gom nhóm thêm cột dp.image_url
+      LEFT JOIN employees e ON o.employee_id = e.id -- 🟢 JOIN sang bảng employees để lấy thông tin shipper
+      GROUP BY o.order_code, dp.image_url,e.full_name,e.avatar -- 🟢 Gom nhóm thêm cột dp.image_url
       ORDER BY o.order_date DESC;
     `;
     const result = await pool.query(query);
@@ -132,55 +133,58 @@ const OrderModel = {
   },
   async assignShipperAndStatus(orderCode, newStatus, employeeId) {
     const query = `
-      UPDATE orders 
-      SET order_status = $1, employee_id = $2 
-      WHERE order_code = $3 
-      RETURNING *
-    `;
+    UPDATE orders
+    SET order_status = $1, employee_id = $2
+    WHERE order_code = $3
+      AND order_status IN (2, 3)
+    RETURNING *
+  `;
     const result = await pool.query(query, [newStatus, employeeId, orderCode]);
     return result.rows[0];
   },
 
-  async completeOrderWithProof(orderCode, proofImageFilename) {
+  async completeOrderWithProof(orderCode, proofImageFilename, shipperId) {
     const client = await pool.connect();
     try {
-      await client.query("BEGIN"); // Bắt đầu transaction
+      await client.query("BEGIN");
 
-      // Bước 1: Thêm ảnh vào bảng delivery_proofs và lấy về ID tự tăng vừa sinh ra
-      const insertProofQuery = `
-        INSERT INTO delivery_proofs (image_url, delivered_at) 
-        VALUES ($1, NOW()) 
-        RETURNING id, image_url, delivered_at
-      `;
-      const proofResult = await client.query(insertProofQuery, [
-        proofImageFilename,
-      ]);
-      const proofId = proofResult.rows[0].id;
+      // Khóa dòng và kiểm tra: đúng shipper đang được gán + đơn đang giao (3)
+      const lock = await client.query(
+        `SELECT 1 FROM orders
+       WHERE order_code = $1 AND employee_id = $2 AND order_status = 3
+       FOR UPDATE`,
+        [orderCode, shipperId],
+      );
+      if (lock.rowCount === 0) {
+        await client.query("ROLLBACK");
+        console.log(
+          `Đơn hàng ${orderCode} không thuộc về shipper ${shipperId} hoặc không ở trạng thái giao (3).`,
+        );
+        return null; // không insert ảnh rác vào delivery_proofs
+      }
 
-      // Bước 2: Cập nhật orders (trạng thái thành 4, và điền delivery_proof_id vào)
-      const updateOrderQuery = `
-        UPDATE orders 
-        SET order_status = 4, 
-            payment_status = 1, 
-            delivery_proof_id = $1 
-        WHERE order_code = $2 
-        RETURNING *
-      `;
-      const orderResult = await client.query(updateOrderQuery, [
-        proofId,
-        orderCode,
-      ]);
+      const proofResult = await client.query(
+        `INSERT INTO delivery_proofs (image_url, delivered_at)
+       VALUES ($1, NOW())
+       RETURNING id, image_url, delivered_at`,
+        [proofImageFilename],
+      );
 
-      await client.query("COMMIT"); // Hoàn tất thành công
-      return {
-        order: orderResult.rows[0],
-        proof: proofResult.rows[0],
-      };
+      const orderResult = await client.query(
+        `UPDATE orders
+       SET order_status = 4, payment_status = 1, delivery_proof_id = $1
+       WHERE order_code = $2
+       RETURNING *`,
+        [proofResult.rows[0].id, orderCode],
+      );
+
+      await client.query("COMMIT");
+      return { order: orderResult.rows[0], proof: proofResult.rows[0] };
     } catch (error) {
-      await client.query("ROLLBACK"); // Hoàn tác nếu có lỗi
+      await client.query("ROLLBACK");
       throw error;
     } finally {
-      client.release(); // Trả kết nối
+      client.release();
     }
   },
 
@@ -315,15 +319,16 @@ const OrderModel = {
   },
 
   // Xử lý giao thất bại (Trạng thái 6) kèm ảnh minh chứng lý do
-  async failOrderWithReason(orderCode, reason) {
+  async failOrderWithReason(orderCode, reason, shipperId) {
     const query = `
-      UPDATE orders 
-      SET order_status = 6, 
-          note = $1 -- Hoặc đổi tên cột 'note' thành tên cột lưu lý do trong bảng orders của bạn
-      WHERE order_code = $2 
-      RETURNING *
-    `;
-    const result = await pool.query(query, [reason, orderCode]);
+    UPDATE orders
+    SET order_status = 6, note = $1
+    WHERE order_code = $2
+      AND employee_id = $3
+      AND order_status = 3
+    RETURNING *
+  `;
+    const result = await pool.query(query, [reason, orderCode, shipperId]);
     return result.rows[0];
   },
 
@@ -370,7 +375,7 @@ const OrderModel = {
       GROUP BY o.order_code, dp.image_url;
     `;
     const { rows } = await pool.query(query, [orderCode, userId]);
-    return rows[0]; // Trả về đúng 1 đối tượng đơn hàng kèm theo mảng items
+    return rows[0]; 
   },
   async getVariantByOrder(orderCode) {
     const query = `

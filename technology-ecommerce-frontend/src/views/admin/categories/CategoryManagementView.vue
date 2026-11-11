@@ -1,26 +1,5 @@
 <template>
-  <div class="category-page-wrapper">
-    <!-- HEADER -->
-    <div class="page-header">
-      <button class="btn-back" @click="$router.back()" title="Quay lại">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-             fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round">
-          <line x1="19" y1="12" x2="5" y2="12"></line>
-          <polyline points="12 19 5 12 12 5"></polyline>
-        </svg>
-        <span>Quay lại</span>
-      </button>
-      <div class="header-titles">
-        <div class="brand-tag">PRODUCT CATEGORIES</div>
-        <h1 class="page-title">Quản Lý Danh Mục</h1>
-        <p class="page-sub">
-          Tổng cộng <b>{{ categories.length }}</b> danh mục •
-          Hiển thị <b>{{ filteredCategories.length }}</b> kết quả
-        </p>
-      </div>
-    </div>
-
+  <div class="category-page">
     <!-- ALERT BANNER (success / error) -->
     <transition name="slide-fade">
       <div v-if="message" class="alert-banner" :class="messageType === 'error' ? 'alert-error' : 'alert-success'">
@@ -434,17 +413,7 @@ onMounted(() => {
 /* =========================================================
    WRAPPER
    ========================================================= */
-.category-page-wrapper {
-  min-height: 100vh;
-  width: 100%;
-  background-color: #f8fafc;
-  background-image:
-    linear-gradient(rgba(226, 232, 240, 0.6) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(226, 232, 240, 0.6) 1px, transparent 1px);
-  background-size: 32px 32px;
-  padding: 30px 40px;
-  box-sizing: border-box;
-}
+
 
 /* =========================================================
    HEADER
@@ -629,7 +598,10 @@ onMounted(() => {
   transition: all 0.2s;
   box-sizing: border-box;
 }
-
+.category-page {
+  width: 100%;
+  box-sizing: border-box;
+}
 .tech-input:focus {
   background-color: #ffffff;
   border-color: #0284c7;
@@ -1006,18 +978,14 @@ onMounted(() => {
    RESPONSIVE
    ========================================================= */
 @media (max-width: 992px) {
-  .category-page-wrapper {
-    padding: 22px 20px;
-  }
+ 
   .sticky-form {
     position: static;
   }
 }
 
 @media (max-width: 640px) {
-  .category-page-wrapper {
-    padding: 16px 12px;
-  }
+ 
   .page-title {
     font-size: 1.4rem;
   }

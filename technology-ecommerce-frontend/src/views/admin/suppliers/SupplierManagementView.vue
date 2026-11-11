@@ -1,25 +1,11 @@
 <template>
-  <div class="supplier-page-wrapper">
+  <div >
     <!-- ================================================= -->
     <!-- MÀN HÌNH 1: DANH SÁCH NHÀ CUNG CẤP                -->
     <!-- ================================================= -->
     <div v-if="!showForm">
       <!-- Header: Tiêu đề & Nút thao tác -->
       <div class="d-flex justify-content-between align-items-center mb-4">
-        <div class="d-flex align-items-center gap-3">
-          <button class="btn-back" @click="$router.back()" title="Quay lại">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="19" y1="12" x2="5" y2="12"></line>
-              <polyline points="12 19 5 12 12 5"></polyline>
-            </svg>
-            <span>Quay lại</span>
-          </button>
-          <div>
-            <div class="brand-tag">SUPPLY CHAIN & PARTNERS</div>
-            <h2 class="page-title mb-0">Quản Lý Nhà Cung Cấp</h2>
-          </div>
-        </div>
-
         <button class="btn-add-tech" @click="openAddForm">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="me-1">
             <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -160,13 +146,11 @@
           <span>Quay lại danh sách</span>
         </button>
         <div>
-          <div class="brand-tag">{{ isEdit ? 'UPDATE PARTNER' : 'NEW PARTNER' }}</div>
           <h2 class="page-title mb-0">
             {{ isEdit ? 'Cập Nhật Nhà Cung Cấp' : 'Thêm Nhà Cung Cấp Mới' }}
           </h2>
         </div>
       </div>
-
       <div class="card-box shadow-sm mb-4">
         <form @submit.prevent="saveSupplier" class="p-4 p-md-5">
           <!-- PHẦN 1: THÔNG TIN DOANH NGHIỆP -->

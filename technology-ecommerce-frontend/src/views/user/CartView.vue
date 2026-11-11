@@ -145,15 +145,6 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="cart-page">
-    <header class="cart-top">
-      <div class="cart-top-inner">
-        <RouterLink to="/home" class="brand" aria-label="TechStore - Trang chủ">
-          Tech<span>Store</span>
-        </RouterLink>
-        <RouterLink to="/home" class="back-link">← Tiếp tục mua sắm</RouterLink>
-      </div>
-    </header>
-
     <main class="cart-main">
       <h1 class="cart-title">
         Giỏ hàng

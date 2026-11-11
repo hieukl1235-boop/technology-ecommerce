@@ -122,9 +122,11 @@ const submitCompleteOrder = async () => {
       showCompleteModal.value = false
       await fetchShipperOrders()
     }
-  } catch (error) {
+   } catch (error) {
     console.error(error)
-    showMessage('❌ Xử lý thất bại!', 'error')
+    const errorMsg = error.response?.data?.message || 'Xử lý thất bại!'
+    showMessage(`❌ ${errorMsg}`, 'error')
+
   } finally {
     isSubmittingComplete.value = false
   }
@@ -162,7 +164,8 @@ const submitFailOrder = async () => {
     }
   } catch (error) {
     console.error(error)
-    showMessage('❌ Xử lý thất bại!', 'error')
+    const errorMsg = error.response?.data?.message || 'Xử lý thất bại!'
+    showMessage(`❌ ${errorMsg}`, 'error')
   } finally {
     isSubmittingFail.value = false
   }
@@ -185,12 +188,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="shipper-page">
+  <div >
     <!-- HEADER -->
     <div class="page-header">
       <div class="header-left">
-        <div class="brand-tag">SHIPPER PORTAL</div>
-        <h1 class="page-title">Đơn Hàng Của Tôi</h1>
         <p class="page-sub">
           Tổng cộng <b>{{ orders.length }}</b> đơn • Đang xem <b>{{ filteredOrders.length }}</b> đơn
         </p>

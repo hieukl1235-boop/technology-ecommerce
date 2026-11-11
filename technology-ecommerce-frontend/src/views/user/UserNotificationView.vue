@@ -1,14 +1,7 @@
 <template>
   <div class="notif-page">
     <!-- HEADER -->
-    <header class="notif-top">
-      <div class="notif-top-inner">
-        <RouterLink to="/home" class="brand" aria-label="TechStore - Trang chủ">
-          Tech<span>Store</span>
-        </RouterLink>
-        <RouterLink to="/home" class="back-link">← Tiếp tục mua sắm</RouterLink>
-      </div>
-    </header>
+    
 
     <main class="notif-main">
       <div class="notif-card">
@@ -54,11 +47,22 @@
             @click="handleNotificationClick(item)"
           >
             <!-- Icon -->
-            <div class="notif-icon" :class="getIconClass(item.type)">
-              <span v-if="item.type === 'order'">📦</span>
-              <span v-else-if="item.type === 'promotion'">🎁</span>
-              <span v-else-if="item.type === 'system'">⚙️</span>
-              <span v-else>📢</span>
+           <div class="notif-icon" :class="getIconClass(item.type)">
+              <span v-if="item.type === 'order'" class="material-symbols-outlined">
+                package_2
+              </span>
+
+              <span v-else-if="item.type === 'promotion'" class="material-symbols-outlined">
+                redeem
+              </span>
+
+              <span v-else-if="item.type === 'system'" class="material-symbols-outlined">
+                settings
+              </span>
+
+              <span v-else class="material-symbols-outlined">
+                campaign
+              </span>
             </div>
 
             <!-- Content -->
@@ -145,7 +149,7 @@ const handleNotificationClick = async (item) => {
   }
 
   if (item.type === 'order' && item.reference_id) {
-    router.push(`/user/orders/${item.reference_id}`)
+    router.push(`order/${item.reference_id}`)
   }
 }
 
@@ -186,6 +190,7 @@ const getIconClass = (type) => {
 
 onMounted(() => {
   fetchNotifications()
+
 })
 
 onBeforeUnmount(() => {

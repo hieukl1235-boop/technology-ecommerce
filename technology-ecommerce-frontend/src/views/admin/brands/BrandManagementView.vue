@@ -1,19 +1,8 @@
 <template>
-  <div class="banner-page-wrapper">
+  <div>
     <!-- HEADER -->
     <div class="page-header">
-      <button class="btn-back" @click="$router.back()" title="Quay lại">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-             fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round">
-          <line x1="19" y1="12" x2="5" y2="12"></line>
-          <polyline points="12 19 5 12 12 5"></polyline>
-        </svg>
-        <span>Quay lại</span>
-      </button>
       <div class="header-titles">
-        <div class="brand-tag">HOME BANNERS</div>
-        <h1 class="page-title">Quản Lý Banner Trang Chủ</h1>
         <p class="page-sub">
           Tổng cộng <b>{{ banners.length }}</b> banner •
           Đang hiển thị <b>{{ activeCount }}</b>
@@ -23,21 +12,16 @@
 
     <!-- ALERT -->
     <transition name="slide-fade">
-      <div
-        v-if="message"
-        class="alert-banner"
-        :class="messageType === 'error' ? 'alert-error' : 'alert-success'"
-      >
+      <div v-if="message" class="alert-banner" :class="messageType === 'error' ? 'alert-error' : 'alert-success'">
         <svg v-if="messageType === 'error'" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round">
+          viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"></circle>
           <line x1="12" y1="8" x2="12" y2="12"></line>
           <line x1="12" y1="16" x2="12.01" y2="16"></line>
         </svg>
-        <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round">
+        <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
           <polyline points="22 4 12 14.01 9 11.01"></polyline>
         </svg>
@@ -64,25 +48,15 @@
               <label class="tech-label">
                 Tiêu đề <span class="text-danger">*</span>
               </label>
-              <input
-                v-model="form.title"
-                type="text"
-                class="tech-input"
-                placeholder="Ví dụ: Sale mùa thu 50%..."
-                :disabled="isSubmitting"
-              />
+              <input v-model="form.title" type="text" class="tech-input" placeholder="Ví dụ: Sale mùa thu 50%..."
+                :disabled="isSubmitting" />
             </div>
 
             <!-- Mô tả -->
             <div class="mb-3">
               <label class="tech-label">Mô tả</label>
-              <textarea
-                v-model="form.description"
-                class="tech-input tech-textarea"
-                rows="3"
-                placeholder="Mô tả ngắn gọn về banner..."
-                :disabled="isSubmitting"
-              ></textarea>
+              <textarea v-model="form.description" class="tech-input tech-textarea" rows="3"
+                placeholder="Mô tả ngắn gọn về banner..." :disabled="isSubmitting"></textarea>
             </div>
 
             <!-- Ảnh -->
@@ -92,12 +66,7 @@
               <!-- Ảnh mới chọn (preview) -->
               <div v-if="previewUrl" class="img-preview">
                 <img :src="previewUrl" alt="Preview" class="preview-img" />
-                <button
-                  type="button"
-                  class="btn-remove-img"
-                  @click="clearImage"
-                  title="Bỏ ảnh này"
-                >
+                <button type="button" class="btn-remove-img" @click="clearImage" title="Bỏ ảnh này">
                   ✕
                 </button>
                 <span class="img-label new-label">✨ Ảnh mới chọn</span>
@@ -111,13 +80,8 @@
 
               <!-- Nút chọn file -->
               <label class="file-upload">
-                <input
-                  ref="fileInputRef"
-                  type="file"
-                  accept="image/*"
-                  @change="handleFileUpload"
-                  :disabled="isSubmitting"
-                />
+                <input ref="fileInputRef" type="file" accept="image/*" @change="handleFileUpload"
+                  :disabled="isSubmitting" />
                 <span class="file-upload-btn">
                   📁 {{ previewUrl ? 'Đổi ảnh khác' : 'Chọn ảnh' }}
                 </span>
@@ -128,22 +92,12 @@
             <div class="mb-3">
               <label class="tech-label">Trạng thái</label>
               <div class="status-toggle">
-                <button
-                  type="button"
-                  class="status-option"
-                  :class="{ active: form.status === 1 }"
-                  @click="form.status = 1"
-                  :disabled="isSubmitting"
-                >
+                <button type="button" class="status-option" :class="{ active: form.status === 1 }"
+                  @click="form.status = 1" :disabled="isSubmitting">
                   🟢 Hiển thị
                 </button>
-                <button
-                  type="button"
-                  class="status-option"
-                  :class="{ active: form.status === 0 }"
-                  @click="form.status = 0"
-                  :disabled="isSubmitting"
-                >
+                <button type="button" class="status-option" :class="{ active: form.status === 0 }"
+                  @click="form.status = 0" :disabled="isSubmitting">
                   🟡 Ẩn
                 </button>
               </div>
@@ -151,11 +105,7 @@
 
             <!-- Actions -->
             <div class="action-buttons">
-              <button
-                class="btn-primary-tech"
-                :disabled="isSubmitting"
-                @click="saveBanner"
-              >
+              <button class="btn-primary-tech" :disabled="isSubmitting" @click="saveBanner">
                 <span v-if="isSubmitting" class="spinner-sm"></span>
                 <span>
                   {{ isSubmitting
@@ -163,12 +113,7 @@
                     : (isEditing ? 'Lưu thay đổi' : 'Tải lên Banner') }}
                 </span>
               </button>
-              <button
-                v-if="isEditing"
-                class="btn-cancel-tech"
-                :disabled="isSubmitting"
-                @click="resetForm"
-              >
+              <button v-if="isEditing" class="btn-cancel-tech" :disabled="isSubmitting" @click="resetForm">
                 Hủy
               </button>
             </div>
@@ -217,22 +162,13 @@
                 </tr>
 
                 <!-- Rows -->
-                <tr
-                  v-for="b in banners"
-                  :key="b.id"
-                  :class="{ 'row-editing': editId === b.id }"
-                >
+                <tr v-for="b in banners" :key="b.id" :class="{ 'row-editing': editId === b.id }">
                   <td class="ps-4 fw-bold text-secondary">#{{ b.id }}</td>
 
                   <td>
                     <div class="banner-thumb-wrap">
-                      <img
-                        v-if="b.image_url"
-                        :src="`http://localhost:3000/uploads/banners/${b.image_url}`"
-                        alt="Banner"
-                        class="banner-thumb"
-                        loading="lazy"
-                      />
+                      <img v-if="b.image_url" :src="`http://localhost:3000/uploads/banners/${b.image_url}`" alt="Banner"
+                        class="banner-thumb" loading="lazy" />
                       <div v-else class="banner-thumb banner-thumb-empty">🖼️</div>
                     </div>
                   </td>
@@ -243,13 +179,9 @@
                   </td>
 
                   <td class="text-center">
-                    <button
-                      class="status-pill"
-                      :class="b.status === 1 ? 'status-active' : 'status-locked'"
-                      :disabled="statusChangingId === b.id"
-                      @click="toggleStatus(b)"
-                      :title="b.status === 1 ? 'Bấm để ẩn' : 'Bấm để hiển thị'"
-                    >
+                    <button class="status-pill" :class="b.status === 1 ? 'status-active' : 'status-locked'"
+                      :disabled="statusChangingId === b.id" @click="toggleStatus(b)"
+                      :title="b.status === 1 ? 'Bấm để ẩn' : 'Bấm để hiển thị'">
                       <span v-if="statusChangingId === b.id" class="spinner-xs"></span>
                       <template v-else>
                         <span class="status-indicator"></span>
@@ -260,30 +192,22 @@
 
                   <td class="text-center pe-4">
                     <div class="action-btn-group">
-                      <button
-                        class="btn-row-action btn-row-edit"
-                        title="Chỉnh sửa"
-                        @click="editBanner(b)"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                             viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <button class="btn-row-action btn-row-edit" title="Chỉnh sửa" @click="editBanner(b)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                           <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path>
                           <path d="m15 5 4 4"></path>
                         </svg>
                       </button>
-                      <button
-                        class="btn-row-action btn-row-delete"
-                        title="Xóa banner"
-                        :disabled="deletingId === b.id"
-                        @click="deleteBanner(b.id)"
-                      >
+                      <button class="btn-row-action btn-row-delete" title="Xóa banner" :disabled="deletingId === b.id"
+                        @click="deleteBanner(b.id)">
                         <span v-if="deletingId === b.id" class="spinner-xs"></span>
-                        <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                             viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                          fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                          stroke-linejoin="round">
                           <polyline points="3 6 5 6 21 6"></polyline>
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+                          </path>
                           <line x1="10" y1="11" x2="10" y2="17"></line>
                           <line x1="14" y1="11" x2="14" y2="17"></line>
                         </svg>
@@ -352,14 +276,19 @@ const revokePreview = () => {
     URL.revokeObjectURL(previewUrl.value)
   }
 }
-
+const token = localStorage.getItem('token')
+const config = {
+  headers: {
+    Authorization: `Bearer ${token}`
+  }
+}
 // ========================================
 // API (GIỮ NGUYÊN ENDPOINT)
 // ========================================
 const fetchAdminBanners = async () => {
   isLoading.value = true
   try {
-    const res = await axios.get('http://localhost:3000/api/admin/banners/all')
+    const res = await axios.get('http://localhost:3000/api/admin/banners/all', config)
     banners.value = res.data.data || []
   } catch (err) {
     console.error('Lỗi tải banner admin:', err)
@@ -443,14 +372,14 @@ const saveBanner = async () => {
       await axios.put(
         `http://localhost:3000/api/admin/banners/${editId.value}`,
         formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
+        { headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` } }
       )
       showMessage('Cập nhật banner thành công!', 'success')
     } else {
       await axios.post(
         'http://localhost:3000/api/admin/banners',
         formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
+        { headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` } }
       )
       showMessage('Thêm banner thành công!', 'success')
     }
@@ -476,7 +405,7 @@ const toggleStatus = async (b) => {
   try {
     await axios.patch(
       `http://localhost:3000/api/admin/banners/${b.id}/status`,
-      { status: newStatus }
+      { status: newStatus }, config
     )
     b.status = newStatus
     showMessage(newStatus === 1 ? 'Đã hiển thị banner' : 'Đã ẩn banner', 'success')
@@ -540,7 +469,9 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
 }
 
-.header-titles { min-width: 0; }
+.header-titles {
+  min-width: 0;
+}
 
 .brand-tag {
   font-size: 0.725rem;
@@ -563,7 +494,10 @@ onBeforeUnmount(() => {
   font-size: 0.85rem;
   color: #64748b;
 }
-.page-sub b { color: #0284c7; }
+
+.page-sub b {
+  color: #0284c7;
+}
 
 .btn-back {
   display: inline-flex;
@@ -581,6 +515,7 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   margin-top: 4px;
 }
+
 .btn-back:hover {
   background: #f1f5f9;
   color: #0284c7;
@@ -602,16 +537,19 @@ onBeforeUnmount(() => {
   margin-bottom: 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
+
 .alert-success {
   background-color: #f0fdf4;
   border: 1px solid #bbf7d0;
   color: #15803d;
 }
+
 .alert-error {
   background-color: #fef2f2;
   border: 1px solid #fecaca;
   color: #b91c1c;
 }
+
 .btn-close-msg {
   background: transparent;
   border: none;
@@ -624,15 +562,22 @@ onBeforeUnmount(() => {
   padding: 4px 8px;
   border-radius: 4px;
 }
+
 .btn-close-msg:hover {
   opacity: 1;
   background: rgba(0, 0, 0, 0.05);
 }
 
 .slide-fade-enter-active,
-.slide-fade-leave-active { transition: all 0.3s ease; }
+.slide-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
 .slide-fade-enter-from,
-.slide-fade-leave-to { opacity: 0; transform: translateY(-10px); }
+.slide-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
 
 /* =========================================================
    CARD
@@ -644,6 +589,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
+
 .card-box-header {
   padding: 18px 24px;
   border-bottom: 1px solid #f1f5f9;
@@ -652,10 +598,26 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
 }
-.table-header { justify-content: space-between; flex-wrap: wrap; }
-.header-left { display: flex; align-items: center; gap: 10px; }
-.card-box-body { padding: 24px; }
-.sticky-form { position: sticky; top: 30px; }
+
+.table-header {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.card-box-body {
+  padding: 24px;
+}
+
+.sticky-form {
+  position: sticky;
+  top: 30px;
+}
 
 /* =========================================================
    FORM
@@ -667,6 +629,7 @@ onBeforeUnmount(() => {
   margin-bottom: 6px;
   display: block;
 }
+
 .tech-input {
   width: 100%;
   padding: 10px 14px;
@@ -680,17 +643,23 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   font-family: inherit;
 }
+
 .tech-input:focus {
   background-color: #ffffff;
   border-color: #0284c7;
   box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
 }
+
 .tech-input:disabled {
   background-color: #f1f5f9;
   color: #94a3b8;
   cursor: not-allowed;
 }
-.tech-textarea { resize: vertical; min-height: 70px; }
+
+.tech-textarea {
+  resize: vertical;
+  min-height: 70px;
+}
 
 /* IMAGE PREVIEW */
 .img-preview {
@@ -702,6 +671,7 @@ onBeforeUnmount(() => {
   border: 1px solid #e2e8f0;
   background: #f8fafc;
 }
+
 .preview-img {
   display: block;
   width: 100%;
@@ -709,6 +679,7 @@ onBeforeUnmount(() => {
   height: 120px;
   object-fit: cover;
 }
+
 .img-label {
   position: absolute;
   bottom: 0;
@@ -720,8 +691,16 @@ onBeforeUnmount(() => {
   text-align: center;
   letter-spacing: 0.03em;
 }
-.new-label { background: rgba(16, 185, 129, 0.9); color: #fff; }
-.current-label { background: rgba(100, 116, 139, 0.85); color: #fff; }
+
+.new-label {
+  background: rgba(16, 185, 129, 0.9);
+  color: #fff;
+}
+
+.current-label {
+  background: rgba(100, 116, 139, 0.85);
+  color: #fff;
+}
 
 .btn-remove-img {
   position: absolute;
@@ -740,6 +719,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   transition: all 0.2s;
 }
+
 .btn-remove-img:hover {
   background: #dc2626;
   transform: scale(1.1);
@@ -751,9 +731,11 @@ onBeforeUnmount(() => {
   cursor: pointer;
   margin-top: 6px;
 }
+
 .file-upload input[type="file"] {
   display: none;
 }
+
 .file-upload-btn {
   display: flex;
   align-items: center;
@@ -768,6 +750,7 @@ onBeforeUnmount(() => {
   font-size: 0.9rem;
   transition: all 0.2s;
 }
+
 .file-upload:hover .file-upload-btn {
   background: #f0f9ff;
   border-color: #0284c7;
@@ -780,6 +763,7 @@ onBeforeUnmount(() => {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
+
 .status-option {
   padding: 9px 12px;
   background: #f8fafc;
@@ -791,14 +775,17 @@ onBeforeUnmount(() => {
   cursor: pointer;
   transition: all 0.2s;
 }
+
 .status-option:hover:not(:disabled) {
   border-color: #94a3b8;
 }
+
 .status-option.active {
   background: #f0f9ff;
   border-color: #0284c7;
   color: #0284c7;
 }
+
 .status-option:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -810,6 +797,7 @@ onBeforeUnmount(() => {
   gap: 10px;
   margin-top: 18px;
 }
+
 .btn-primary-tech {
   flex: 1;
   padding: 10px 16px;
@@ -827,11 +815,13 @@ onBeforeUnmount(() => {
   justify-content: center;
   gap: 8px;
 }
+
 .btn-primary-tech:hover:not(:disabled) {
   background: linear-gradient(135deg, #0369a1 0%, #1d4ed8 100%);
   transform: translateY(-1px);
   box-shadow: 0 6px 16px rgba(2, 132, 199, 0.35);
 }
+
 .btn-primary-tech:disabled {
   opacity: 0.65;
   cursor: not-allowed;
@@ -847,10 +837,12 @@ onBeforeUnmount(() => {
   cursor: pointer;
   transition: all 0.2s;
 }
+
 .btn-cancel-tech:hover:not(:disabled) {
   background: #f1f5f9;
   border-color: #94a3b8;
 }
+
 .btn-cancel-tech:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -865,6 +857,7 @@ onBeforeUnmount(() => {
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
+
 .spinner-xs {
   width: 12px;
   height: 12px;
@@ -873,6 +866,7 @@ onBeforeUnmount(() => {
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
+
 .spinner {
   width: 36px;
   height: 36px;
@@ -881,7 +875,12 @@ onBeforeUnmount(() => {
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* COUNT BADGE */
 .count-badge {
@@ -909,15 +908,28 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid #e2e8f0;
   white-space: nowrap;
 }
+
 .custom-table tbody td {
   padding: 14px 12px;
   border-bottom: 1px solid #f1f5f9;
   vertical-align: middle;
 }
-.custom-table tbody tr { transition: background-color 0.15s ease; }
-.custom-table tbody tr:hover { background-color: #f8fafc; }
-.custom-table tbody tr.row-editing { background-color: #eff6ff; }
-.custom-table tbody tr.row-editing:hover { background-color: #dbeafe; }
+
+.custom-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.custom-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.custom-table tbody tr.row-editing {
+  background-color: #eff6ff;
+}
+
+.custom-table tbody tr.row-editing:hover {
+  background-color: #dbeafe;
+}
 
 .banner-thumb-wrap {
   width: 110px;
@@ -927,11 +939,13 @@ onBeforeUnmount(() => {
   border: 1px solid #e2e8f0;
   background: #f8fafc;
 }
+
 .banner-thumb {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
+
 .banner-thumb-empty {
   display: flex;
   align-items: center;
@@ -947,6 +961,7 @@ onBeforeUnmount(() => {
   font-size: 0.92rem;
   margin-bottom: 2px;
 }
+
 .banner-desc {
   display: block;
   font-size: 0.8rem;
@@ -972,15 +987,26 @@ onBeforeUnmount(() => {
   cursor: pointer;
   transition: all 0.2s;
 }
-.status-pill:disabled { cursor: not-allowed; opacity: 0.6; }
-.status-pill:hover:not(:disabled) { transform: translateY(-1px); }
+
+.status-pill:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.status-pill:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
 
 .status-active {
   background-color: #ecfdf5;
   color: #059669;
   border-color: #a7f3d0;
 }
-.status-active:hover:not(:disabled) { background-color: #d1fae5; }
+
+.status-active:hover:not(:disabled) {
+  background-color: #d1fae5;
+}
+
 .status-active .status-indicator {
   background-color: #10b981;
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
@@ -991,8 +1017,14 @@ onBeforeUnmount(() => {
   color: #b45309;
   border-color: #fde68a;
 }
-.status-locked:hover:not(:disabled) { background-color: #fef3c7; }
-.status-locked .status-indicator { background-color: #f59e0b; }
+
+.status-locked:hover:not(:disabled) {
+  background-color: #fef3c7;
+}
+
+.status-locked .status-indicator {
+  background-color: #f59e0b;
+}
 
 .status-indicator {
   width: 6px;
@@ -1001,7 +1033,11 @@ onBeforeUnmount(() => {
 }
 
 /* ACTION BUTTONS */
-.action-btn-group { display: inline-flex; gap: 6px; }
+.action-btn-group {
+  display: inline-flex;
+  gap: 6px;
+}
+
 .btn-row-action {
   width: 32px;
   height: 32px;
@@ -1014,12 +1050,17 @@ onBeforeUnmount(() => {
   background: #ffffff;
   transition: all 0.2s;
 }
-.btn-row-action:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.btn-row-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 
 .btn-row-edit {
   border-color: #cbd5e1;
   color: #0284c7;
 }
+
 .btn-row-edit:hover:not(:disabled) {
   background-color: #f0f9ff;
   border-color: #0284c7;
@@ -1030,6 +1071,7 @@ onBeforeUnmount(() => {
   border-color: #fecaca;
   color: #ef4444;
 }
+
 .btn-row-delete:hover:not(:disabled) {
   background-color: #fef2f2;
   border-color: #dc2626;
@@ -1045,7 +1087,12 @@ onBeforeUnmount(() => {
   padding: 60px 20px;
   gap: 14px;
 }
-.loading-state p { margin: 0; color: #64748b; font-size: 0.9rem; }
+
+.loading-state p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
 
 .empty-state {
   display: flex;
@@ -1054,21 +1101,52 @@ onBeforeUnmount(() => {
   gap: 8px;
   padding: 20px;
 }
-.empty-icon { font-size: 42px; opacity: 0.55; margin-bottom: 6px; }
-.empty-title { margin: 0; font-weight: 700; color: #475569; font-size: 1rem; }
-.empty-sub { margin: 0; font-size: 0.85rem; color: #94a3b8; max-width: 340px; }
+
+.empty-icon {
+  font-size: 42px;
+  opacity: 0.55;
+  margin-bottom: 6px;
+}
+
+.empty-title {
+  margin: 0;
+  font-weight: 700;
+  color: #475569;
+  font-size: 1rem;
+}
+
+.empty-sub {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #94a3b8;
+  max-width: 340px;
+}
 
 /* =========================================================
    RESPONSIVE
    ========================================================= */
 @media (max-width: 992px) {
-  .banner-page-wrapper { padding: 22px 20px; }
-  .sticky-form { position: static; }
+  .banner-page-wrapper {
+    padding: 22px 20px;
+  }
+
+  .sticky-form {
+    position: static;
+  }
 }
 
 @media (max-width: 640px) {
-  .banner-page-wrapper { padding: 16px 12px; }
-  .page-title { font-size: 1.4rem; }
-  .table-header { flex-direction: column; align-items: stretch; }
+  .banner-page-wrapper {
+    padding: 16px 12px;
+  }
+
+  .page-title {
+    font-size: 1.4rem;
+  }
+
+  .table-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 </style>

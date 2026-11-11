@@ -218,14 +218,7 @@ watch(
 <template>
   <div class="detail-page">
     <!-- HEADER -->
-    <header class="detail-top">
-      <div class="detail-top-inner">
-        <RouterLink to="/home" class="brand" aria-label="TechStore - Trang chủ">
-          Tech<span>Store</span>
-        </RouterLink>
-        <RouterLink to="/home" class="back-link">← Tiếp tục mua sắm</RouterLink>
-      </div>
-    </header>
+
 
     <main class="detail-main">
       <!-- BACK BUTTON -->

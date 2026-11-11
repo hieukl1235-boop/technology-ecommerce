@@ -1,5 +1,7 @@
 const OrderModel = require("../../models/Order");
 const NotificationModel = require("../../models/Notification");
+const fs = require("fs");
+
 const OrderController = {
   async getAllOrders(req, res) {
     try {
@@ -46,8 +48,7 @@ const OrderController = {
   async assignShipper(req, res) {
     try {
       const { orderCode } = req.params;
-      const { newStatus, shipperId } = req.body; // shipperId này chính là employee_id
-
+      const { newStatus, shipperId } = req.body;
       // Gọi hàm model vừa viết
       const updatedOrder = await OrderModel.assignShipperAndStatus(
         orderCode,
@@ -93,7 +94,6 @@ const OrderController = {
     try {
       const { orderCode } = req.params;
 
-      // 1. Kiểm tra xem người dùng đã upload ảnh minh chứng chưa
       if (!req.file) {
         return res.status(400).json({
           success: false,
@@ -101,31 +101,27 @@ const OrderController = {
         });
       }
 
-      // Lấy tên file ảnh từ Multer
-      const proofImageFilename = req.file.filename;
-
-      // 2. Gọi hàm trong Model thực hiện Transaction (Lưu ảnh -> Lấy ID -> Cập nhật Order)
       const result = await OrderModel.completeOrderWithProof(
         orderCode,
-        proofImageFilename,
+        req.file.filename,
+        req.employee.id,
       );
 
-      if (!result || !result.order) {
-        return res.status(404).json({
+      if (!result) {
+        // Xóa ảnh vừa upload vì không dùng nữa
+        fs.unlink(req.file.path, () => {});
+        return res.status(409).json({
           success: false,
-          message: "Không tìm thấy đơn hàng hoặc cập nhật thất bại!",
+          message:
+            "Đơn hàng đã được chuyển cho shipper khác hoặc không còn ở trạng thái đang giao. Vui lòng tải lại danh sách!",
         });
       }
 
-      // 3. Trả về kết quả thành công
       return res.status(200).json({
         success: true,
         message:
           "🎉 Đã xác nhận giao hàng thành công và cập nhật ảnh minh chứng!",
-        data: {
-          order: result.order,
-          proof: result.proof,
-        },
+        data: { order: result.order, proof: result.proof },
       });
     } catch (error) {
       console.error("Lỗi khi hoàn thành đơn hàng:", error);
@@ -202,7 +198,7 @@ const OrderController = {
   async failOrder(req, res) {
     try {
       const { orderCode } = req.params;
-      const { reason } = req.body; // 🟢 Lấy lý do dạng text từ frontend gửi lên
+      const { reason } = req.body;
 
       if (!reason || !reason.trim()) {
         return res.status(400).json({
@@ -211,35 +207,37 @@ const OrderController = {
         });
       }
 
-      // Gọi hàm trong Model để cập nhật trạng thái đơn thành 6 và lưu lý do
+      // Chỉ shipper đang được gán và đơn đang ở trạng thái 3 mới cập nhật được
       const updatedOrder = await OrderModel.failOrderWithReason(
         orderCode,
-        reason,
+        reason.trim(),
+        req.employee.id,
       );
 
       if (!updatedOrder) {
-        return res.status(404).json({
+        return res.status(409).json({
           success: false,
-          message: "Không tìm thấy đơn hàng hoặc cập nhật thất bại!",
+          message:
+            "Đơn hàng đã được chuyển cho shipper khác hoặc không còn ở trạng thái đang giao. Vui lòng tải lại danh sách!",
         });
       }
-      const user = await OrderModel.getUserByOrderCode(orderCode);
 
-      if (!user) {
-        console.error("Không tìm thấy khách hàng của đơn:", orderCode);
-        return;
-      }
+      // Gửi thông báo: lỗi ở đây không làm hỏng response
       try {
-        await NotificationModel.createNotification(
-              user.user_id,
-          "Giao hàng không thành công",
-          `Đơn hàng #${orderCode} của bạn đang được giao. Vui lòng kiểm tra điện thoại để chúng tôi sớm giao hàng đến với quý khách..`,
-          "order",
-          orderCode, // reference_id (có thể là orderCode hoặc id tùy thiết kế bảng orders của bạn)
-        );
+        const user = await OrderModel.getUserByOrderCode(orderCode);
+        if (user) {
+          await NotificationModel.createNotification(
+            user.user_id,
+            "Giao hàng không thành công",
+            `Đơn hàng #${orderCode} giao không thành công. Vui lòng kiểm tra điện thoại để chúng tôi sớm giao lại cho quý khách.`,
+            "order",
+            orderCode,
+          );
+        } else {
+          console.error("Không tìm thấy khách hàng của đơn:", orderCode);
+        }
       } catch (notifError) {
-        // Log lỗi thông báo nhưng không làm gián đoạn response trả về cho client
-        console.error("Lỗi tạo thông báo hủy đơn:", notifError);
+        console.error("Lỗi tạo thông báo giao thất bại:", notifError);
       }
 
       return res.status(200).json({

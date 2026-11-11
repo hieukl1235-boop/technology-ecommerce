@@ -1,31 +1,11 @@
 <template>
-  <div class="brand-page-wrapper">
+  <div >
     <!-- ================================================= -->
     <!-- MÀN HÌNH 1: DANH SÁCH THƯƠNG HIỆU                  -->
     <!-- ================================================= -->
     <div v-if="currentView === 'list'">
       <!-- HEADER -->
       <div class="page-header">
-        <div class="header-left">
-          <button class="btn-back" @click="goBackPage" title="Quay lại">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                 fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <line x1="19" y1="12" x2="5" y2="12"></line>
-              <polyline points="12 19 5 12 12 5"></polyline>
-            </svg>
-            <span>Quay lại</span>
-          </button>
-          <div class="header-titles">
-            <div class="brand-tag">BRAND DIRECTORY</div>
-            <h1 class="page-title">Quản Lý Thương Hiệu</h1>
-            <p class="page-sub">
-              Tổng cộng <b>{{ brands.length }}</b> thương hiệu •
-              Hiển thị <b>{{ filteredBrands.length }}</b> kết quả
-            </p>
-          </div>
-        </div>
-
         <button class="btn-add-tech" @click="openCreateForm">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
                fill="none" stroke="currentColor" stroke-width="2.5"
@@ -203,17 +183,7 @@
     <!-- ================================================= -->
     <div v-else class="form-view-container">
       <div class="page-header">
-        <button class="btn-back" @click="goBackToList">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-               fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12"></line>
-            <polyline points="12 19 5 12 12 5"></polyline>
-          </svg>
-          <span>Quay lại danh sách</span>
-        </button>
         <div class="header-titles">
-          <div class="brand-tag">{{ isEditing ? 'UPDATE' : 'CREATE' }}</div>
           <h1 class="page-title">
             {{ isEditing ? 'Cập Nhật Thương Hiệu' : 'Thêm Thương Hiệu Mới' }}
           </h1>

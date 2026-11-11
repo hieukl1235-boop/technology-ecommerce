@@ -283,15 +283,6 @@ onBeforeUnmount(() => {
 <template>
   <div class="orders-page">
     <!-- HEADER -->
-    <header class="orders-top">
-      <div class="orders-top-inner">
-        <RouterLink to="/home" class="brand" aria-label="TechStore - Trang chủ">
-          Tech<span>Store</span>
-        </RouterLink>
-        <RouterLink to="/home" class="back-link">← Tiếp tục mua sắm</RouterLink>
-      </div>
-    </header>
-
     <main class="orders-main">
       <div class="page-head">
         <button class="btn-back" @click="router.back()" type="button" title="Quay lại">

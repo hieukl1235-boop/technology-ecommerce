@@ -213,16 +213,6 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="account-wrapper">
-    <!-- HEADER -->
-    <header class="account-top">
-      <div class="account-top-inner">
-        <RouterLink to="/home" class="brand" aria-label="TechStore - Trang chủ">
-          Tech<span>Store</span>
-        </RouterLink>
-        <RouterLink to="/home" class="back-link">← Tiếp tục mua sắm</RouterLink>
-      </div>
-    </header>
-
     <main class="account-main">
       <!-- CARD -->
       <div class="account-card">
@@ -282,10 +272,8 @@ onBeforeUnmount(() => {
               </button>
             </template>
           </div>
-
           <p class="avatar-hint">JPG, PNG, GIF · Tối đa 5MB</p>
         </div>
-
         <!-- ALERT -->
         <transition name="fade">
           <div v-if="message" class="account-alert"

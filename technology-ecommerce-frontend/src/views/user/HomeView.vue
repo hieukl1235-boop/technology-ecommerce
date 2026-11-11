@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, watch, computed, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { getImageSearchFile, clearImageSearchFile } from '@/utils/imageSearchStore'
 import axios from 'axios'
 
 const route = useRoute()
@@ -10,30 +11,25 @@ const API_BASE_URL = 'http://localhost:3000/api/products'
 // ============ USER INFO ============
 const token = localStorage.getItem('token')
 const user = JSON.parse(localStorage.getItem('user') || '{}')
-
-// Kiểm tra đăng nhập: cần token VÀ user.id
 const isLoggedIn = computed(() => !!token && !!user?.id)
 
-// Avatar URL an toàn
-const userAvatarUrl = computed(() => {
-  const avatar = user?.avatar || user?.avatar_url
-  if (!avatar) return ''
-  return avatar.startsWith('http')
-    ? avatar
-    : `http://localhost:3000/uploads/avatars/${avatar}`
-})
+// ============ TOAST ============
+const showToast = ref(false)
+const toastMsg = ref('')
+const toastType = ref('success')
+let toastTimer = null
 
-// Chữ cái đầu tên — fallback avatar
-const userInitials = computed(() => {
-  const name = user?.full_name?.trim()
-  if (!name) return '?'
-  const parts = name.split(/\s+/)
-  return parts.length === 1
-    ? parts[0].charAt(0).toUpperCase()
-    : (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
-})
+const triggerToast = (msg, type = 'success') => {
+  toastMsg.value = msg
+  toastType.value = type
+  showToast.value = true
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => {
+    showToast.value = false
+  }, 3000)
+}
 
-// Yêu cầu đăng nhập — redirect nếu chưa login
+// ============ YÊU CẦU ĐĂNG NHẬP ============
 const requireLogin = (actionName = 'thực hiện chức năng này') => {
   if (!isLoggedIn.value) {
     triggerToast(`Vui lòng đăng nhập để ${actionName}`, 'error')
@@ -43,10 +39,6 @@ const requireLogin = (actionName = 'thực hiện chức năng này') => {
     return false
   }
   return true
-}
-const goToCart = () => {
-  if (!requireLogin('xem giỏ hàng')) return
-  router.push('/cart')
 }
 
 // ============ DỮ LIỆU SẢN PHẨM & BỘ LỌC ============
@@ -70,16 +62,12 @@ const hasMore = ref(true)
 const isLoadingProducts = ref(false)
 const isLoadingMeta = ref(false)
 const loadError = ref('')
-const isSearchFocused = ref(false)
 
 // Biến thể & modal
 const variants = ref([])
 const quantities = ref({})
 const showModal = ref(false)
 const isLoadingVariants = ref(false)
-
-// Badge giỏ hàng
-const cartCount = ref(0)
 
 // ============ SLIDER BANNER ============
 const currentBannerIndex = ref(0)
@@ -107,26 +95,10 @@ const restartBannerTimer = () => {
   }
 }
 
-// ============ TOAST ============
-const showToast = ref(false)
-const toastMsg = ref('')
-const toastType = ref('success')
-let toastTimer = null
-
-const triggerToast = (msg, type = 'success') => {
-  toastMsg.value = msg
-  toastType.value = type
-  showToast.value = true
-  clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => {
-    showToast.value = false
-  }, 3000)
-}
-
 // ============ CALL API ============
 const fetchCategories = async () => {
   try {
-    const response = await axios.get(`http://localhost:3000/api/admin/categories?status=1`)
+    const response = await axios.get('http://localhost:3000/api/admin/categories?status=1')
     categories.value = response.data
   } catch (error) {
     console.error('Lỗi tải danh mục:', error)
@@ -135,7 +107,7 @@ const fetchCategories = async () => {
 
 const fetchBanners = async () => {
   try {
-    const response = await axios.get(`http://localhost:3000/api/admin/banners`)
+    const response = await axios.get('http://localhost:3000/api/admin/banners')
     banners.value = response.data.data || []
     currentBannerIndex.value = 0
     restartBannerTimer()
@@ -146,7 +118,7 @@ const fetchBanners = async () => {
 
 const fetchBrands = async () => {
   try {
-    const response = await axios.get(`http://localhost:3000/api/admin/brands?status=1`)
+    const response = await axios.get('http://localhost:3000/api/admin/brands?status=1')
     brands.value = response.data
   } catch (error) {
     console.error('Lỗi tải thương hiệu:', error)
@@ -165,24 +137,6 @@ const fetchProducts = async () => {
     products.value = []
   } finally {
     isLoadingProducts.value = false
-  }
-}
-
-// Đếm tổng số lượng sản phẩm trong giỏ
-const fetchCartCount = async () => {
-  if (!isLoggedIn.value) {
-    cartCount.value = 0
-    return
-  }
-  try {
-    const res = await axios.get('http://localhost:3000/api/cart', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    const items = Array.isArray(res.data) ? res.data : res.data.data || []
-    cartCount.value = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
-  } catch (error) {
-    console.error('Lỗi tải giỏ hàng:', error)
-    cartCount.value = 0
   }
 }
 
@@ -261,7 +215,6 @@ const addToCart = async (variantId, quantity) => {
     )
     triggerToast('✅ Thêm vào giỏ hàng thành công!')
     showModal.value = false
-    await fetchCartCount()
     return true
   } catch (error) {
     triggerToast('❌ Thêm vào giỏ hàng thất bại!', 'error')
@@ -278,46 +231,6 @@ const decreaseQty = (variantId) => {
   const cur = Number(quantities.value[variantId]) || 1
   if (cur > 1) quantities.value[variantId] = cur - 1
 }
-
-// ============ TÌM KIẾM GIỌNG NÓI ============
-const isListening = ref(false)
-const startVoiceSearch = () => {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-  if (!SpeechRecognition) {
-    triggerToast('Trình duyệt không hỗ trợ tìm kiếm giọng nói!', 'error')
-    return
-  }
-  const recognition = new SpeechRecognition()
-  recognition.lang = 'vi-VN'
-  recognition.interimResults = false
-  recognition.maxAlternatives = 1
-
-  recognition.onstart = () => {
-    isListening.value = true
-  }
-  recognition.onresult = (event) => {
-    filters.value.keyword = event.results[0][0].transcript.replace(/[.,]/g, '')
-  }
-  recognition.onerror = () => {
-    isListening.value = false
-  }
-  recognition.onend = () => {
-    isListening.value = false
-  }
-  recognition.start()
-}
-
-// ============ WATCH FILTERS ============
-watch(
-  () => ({ ...filters.value }),
-  (newVal, oldVal) => {
-    if (newVal.limit !== oldVal.limit) return
-    filters.value.limit = 10
-    hasMore.value = true
-    fetchProducts()
-  },
-  { deep: true },
-)
 
 // ============ CHECKOUT NHANH ============
 const handleCheckout = async (variantId, quantity) => {
@@ -349,7 +262,6 @@ const recomend = ref([])
 const recomendProduct = ref([])
 
 const getProductRecommend = async () => {
-  // Chưa login → không gọi API, tránh lỗi
   if (!isLoggedIn.value) {
     recomend.value = []
     recomendProduct.value = []
@@ -357,16 +269,12 @@ const getProductRecommend = async () => {
   }
 
   try {
-    const res = await axios.get(
-      `http://localhost:5000/api/users/${user.id}/recommendations`,
-    )
+    const res = await axios.get(`http://localhost:5000/api/users/${user.id}/recommendations`)
     recomend.value = res.data.recommendations || []
     recomendProduct.value = await Promise.all(
       recomend.value.map(async (item) => {
         try {
-          const result = await axios.get(
-            `http://localhost:3000/api/product/${item.product_id}`,
-          )
+          const result = await axios.get(`http://localhost:3000/api/products/${item.product_id}`)
           return result.data
         } catch {
           return null
@@ -381,42 +289,33 @@ const getProductRecommend = async () => {
 }
 
 // ============ TÌM KIẾM BẰNG HÌNH ẢNH ============
-const imageSearchInput = ref(null)
+const imageSearchPreview = ref('')
 const imageSearchResults = ref([])
 const isSearchingByImage = ref(false)
 const imageSearchError = ref('')
 
-const openImagePicker = () => {
-  imageSearchInput.value?.click()
-}
-
-const handleImageSearchChange = async (event) => {
-  const file = event.target.files?.[0]
-  event.target.value = ''
-
+const handleImageSearchFromStore = async () => {
+  const file = getImageSearchFile()
   if (!file) return
-  if (!file.type.startsWith('image/')) {
-    imageSearchError.value = 'Vui lòng chọn file hình ảnh.'
-    return
-  }
+
+  imageSearchPreview.value = URL.createObjectURL(file)
+  imageSearchResults.value = []
+  imageSearchError.value = ''
+  isSearchingByImage.value = true
 
   const formData = new FormData()
   formData.append('image', file)
-  formData.append('top_k', '5')
-
-  isSearchingByImage.value = true
-  imageSearchError.value = ''
-  imageSearchResults.value = []
+  formData.append('top_k', '10')
 
   try {
     const response = await axios.post(
       'http://localhost:5000/api/search-by-image',
       formData,
     )
-    const results = response.data.data || []
+    const items = response.data.data || []
 
     imageSearchResults.value = await Promise.all(
-      results.map(async (item) => {
+      items.map(async (item) => {
         try {
           const productResponse = await axios.get(
             `http://localhost:3000/api/products/${item.product_id}`,
@@ -431,7 +330,7 @@ const handleImageSearchChange = async (event) => {
             id: item.product_id,
             product_id: item.product_id,
             name: item.product_name,
-            image_url: item.image_url,
+            main_image: item.image_url,
             similarity: item.similarity,
           }
         }
@@ -444,14 +343,71 @@ const handleImageSearchChange = async (event) => {
       'Không thể tìm kiếm bằng hình ảnh. Vui lòng thử lại.'
   } finally {
     isSearchingByImage.value = false
+    clearImageSearchFile()
+    if (route.query.image_search !== undefined) {
+      const query = { ...route.query }
+      delete query.image_search
+      router.replace({ path: '/home', query })
+    }
   }
 }
+
+const closeImageSearch = () => {
+  imageSearchPreview.value = ''
+  imageSearchResults.value = []
+  imageSearchError.value = ''
+  isSearchingByImage.value = false
+
+  router.replace({
+    path: '/home',
+    query: route.query.keyword ? { keyword: route.query.keyword } : {},
+  })
+}
+
+// ============ WATCH FILTERS ============
+watch(
+  () => ({ ...filters.value }),
+  (newVal, oldVal) => {
+    if (newVal.limit !== oldVal.limit) return
+    filters.value.limit = 10
+    hasMore.value = true
+    fetchProducts()
+  },
+  { deep: true },
+)
+
+// ============ WATCH URL KEYWORD ============
+watch(
+  () => route.query.keyword,
+  (newKeyword) => {
+    filters.value.keyword = newKeyword || ''
+    filters.value.offset = 0
+    // watch(filters) ở trên sẽ tự gọi fetchProducts
+  },
+)
+
+// ============ WATCH IMAGE_SEARCH QUERY ============
+// Đặt SAU handleImageSearchFromStore để tránh lỗi TDZ.
+// `immediate: true` để chạy cả khi mở link /home?image_search=1 lần đầu.
+watch(
+  () => route.query.image_search,
+  (newVal) => {
+    if (newVal === '1') {
+      handleImageSearchFromStore()
+    }
+  },
+  { immediate: true },
+)
 
 // ============ LIFECYCLE ============
 onMounted(() => {
   fetchAllMeta()
+
+  if (route.query.keyword) {
+    filters.value.keyword = route.query.keyword
+  }
+
   fetchProducts()
-  fetchCartCount()
   getProductRecommend()
 
   if (route.query.status === 'failed') {
@@ -468,102 +424,24 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <!-- <p>{{ isLoggedIn }}</p> -->
   <div class="store-layout">
     <!-- TOAST -->
     <div class="toast-notification" :class="{ 'toast-show': showToast, 'toast-error': toastType === 'error' }">
       {{ toastMsg }}
     </div>
 
-    <!-- TOP BAR -->
-    <div class="top-bar">
-      <div class="top-bar-inner">
-        <div class="top-bar-left">
-          <span>🚚 Miễn phí giao hàng đơn từ 500K</span>
-          <span class="divider">|</span>
-          <span>🔄 Đổi trả trong 30 ngày</span>
-        </div>
-        <div class="top-bar-right">
-          <a href="tel:18006789">📞 Hotline: <b>1900 0000</b></a>
-          <span class="divider">|</span>
-         <RouterLink :to="isLoggedIn ? '/notifications' : '/login?redirect=/notifications'" class="top-bar-link">
-            🔔 Thông báo
-          </RouterLink>
-          <span class="divider">|</span>
-          <RouterLink :to="isLoggedIn ? '/chat' : '/login?redirect=/chat'" class="top-bar-link">
-            💬 Tư vấn
-          </RouterLink>
-        </div>
+    <!-- NAV DANH MỤC -->
+    <nav class="main-nav">
+      <div class="main-nav-inner">
+        <button class="nav-cat-btn" :class="{ active: filters.category_id === '' }" @click="filters.category_id = ''">
+          ☰ Tất cả danh mục
+        </button>
+        <button v-for="cat in categories" :key="cat.id" class="nav-cat-btn"
+          :class="{ active: filters.category_id === cat.id }" @click="selectCategory(cat.id)">
+          {{ cat.name }}
+        </button>
       </div>
-    </div>
-
-    <!-- HEADER -->
-    <header class="store-header">
-      <div class="header-container-inner">
-        <RouterLink to="/" class="header-logo">
-          <h2>Tech<span>Store</span></h2>
-        </RouterLink>
-
-        <div class="header-search" :class="{ focused: isSearchFocused }">
-          <input type="text" v-model="filters.keyword" placeholder="Bạn cần tìm laptop, điện thoại, phụ kiện...?"
-            @focus="isSearchFocused = true" @blur="isSearchFocused = false" @keyup.enter="fetchProducts" />
-          <button class="btn-voice" :class="{ listening: isListening }" @click="startVoiceSearch"
-            :title="isListening ? 'Đang nghe...' : 'Tìm kiếm giọng nói'">
-            {{ isListening ? '🎙️' : '🎤' }}
-          </button>
-          <!-- Nút tìm kiếm bằng hình ảnh -->
-          <button type="button" class="btn-voice" title="Tìm kiếm bằng hình ảnh" @click="openImagePicker">
-            📷
-          </button>
-
-          <!-- Input chọn ảnh, ẩn khỏi giao diện -->
-          <input ref="imageSearchInput" type="file" accept="image/*" hidden @change="handleImageSearchChange" />
-          <button class="btn-search" @click="fetchProducts">🔍 Tìm</button>
-
-        </div>
-
-        <div class="header-actions">
-          <!-- ĐÃ ĐĂNG NHẬP: avatar + tên -->
-          <RouterLink v-if="isLoggedIn" to="/account" class="user-chip">
-            <div class="user-avatar">
-              <img v-if="userAvatarUrl" :src="userAvatarUrl" :alt="user.full_name" class="user-avatar-img"
-                @error="(e) => (e.target.style.display = 'none')" />
-              <span v-else class="user-avatar-text">{{ userInitials }}</span>
-            </div>
-            <div class="user-chip-info">
-              <span class="user-chip-label">Xin chào,</span>
-              <b class="user-chip-name">{{ user.full_name || 'Khách' }}</b>
-            </div>
-          </RouterLink>
-
-          <!-- CHƯA ĐĂNG NHẬP: nút Đăng nhập -->
-          <RouterLink v-else to="/login" class="btn-login">
-            <span>👤 Đăng nhập</span>
-          </RouterLink>
-
-          <!-- Giỏ hàng (badge động) -->
-          <button type="button" class="header-icon-btn" title="Giỏ hàng" @click="goToCart">
-            🛒
-            <span v-if="cartCount > 0" class="cart-badge">
-              {{ cartCount > 99 ? '99+' : cartCount }}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      <!-- NAV DANH MỤC -->
-      <nav class="main-nav">
-        <div class="main-nav-inner">
-          <button class="nav-cat-btn" :class="{ active: filters.category_id === '' }" @click="filters.category_id = ''">
-            ☰ Tất cả danh mục
-          </button>
-          <button v-for="cat in categories" :key="cat.id" class="nav-cat-btn"
-            :class="{ active: filters.category_id === cat.id }" @click="selectCategory(cat.id)">
-            {{ cat.name }}
-          </button>
-        </div>
-      </nav>
-    </header>
+    </nav>
 
     <main class="main-content">
       <!-- HERO SLIDER -->
@@ -587,61 +465,73 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <!-- Dots -->
           <div class="hero-dots" v-if="banners.length > 1">
             <button v-for="(b, idx) in banners" :key="b.id" class="dot" :class="{ active: idx === currentBannerIndex }"
               @click="goToBanner(idx)" :aria-label="`Banner ${idx + 1}`" />
           </div>
         </div>
       </div>
+
       <!-- KẾT QUẢ TÌM KIẾM BẰNG HÌNH ẢNH -->
-      <section v-if="isSearchingByImage || imageSearchError || imageSearchResults.length > 0" class="recommend-section">
-        <div class="recommend-header">
-          <h2 class="recommend-title">
-            📷 Kết quả tìm kiếm bằng hình ảnh
-          </h2>
+      <section v-if="isSearchingByImage || imageSearchError || imageSearchResults.length > 0 || imageSearchPreview"
+        class="image-search-section">
+        <div class="image-search-header">
+          <h2>📷 Kết quả tìm kiếm bằng hình ảnh</h2>
+          <button class="btn-close-image-search" @click="closeImageSearch">✖ Đóng</button>
         </div>
 
-        <p v-if="isSearchingByImage">
-          Đang phân tích hình ảnh và tìm sản phẩm tương tự...
-        </p>
+        <div v-if="imageSearchPreview" class="image-search-preview-box">
+          <p>Ảnh bạn đã chọn:</p>
+          <img :src="imageSearchPreview" alt="Ảnh tìm kiếm" class="image-search-preview" />
+        </div>
 
-        <p v-if="imageSearchError" class="text-danger">
-          {{ imageSearchError }}
-        </p>
+        <div v-if="isSearchingByImage" class="state-box">
+          <div class="spinner"></div>
+          <p>Đang phân tích hình ảnh và tìm sản phẩm tương tự...</p>
+        </div>
 
-        <div v-if="imageSearchResults.length > 0" class="recommend-grid">
-          <div v-for="p in imageSearchResults" :key="p.product_id" class="recommend-card">
-            <RouterLink :to="`/product/${p.product_id}`" class="recommend-img-link">
-              <div class="recommend-img-box">
+        <div v-else-if="imageSearchError" class="state-box error-state">
+          <div class="state-icon">⚠️</div>
+          <h3>{{ imageSearchError }}</h3>
+        </div>
+
+        <div v-else-if="imageSearchResults.length === 0 && imageSearchPreview" class="state-box empty-state">
+          <div class="state-icon">🔍</div>
+          <h3>Không tìm thấy sản phẩm tương tự</h3>
+          <p>Thử chọn ảnh khác rõ nét hơn.</p>
+        </div>
+
+        <div v-else class="image-search-results-grid">
+          <div v-for="p in imageSearchResults" :key="p.product_id" class="image-result-card">
+            <RouterLink :to="`/product/${p.product_id}`" class="image-result-img-link">
+              <div class="image-result-img-box">
                 <img v-if="p.main_image" :src="`http://localhost:3000/uploads/products/${p.main_image}`" :alt="p.name"
-                  class="recommend-img" />
-
-                <span v-else class="recommend-no-img">
-                  📦
+                  class="image-result-img" />
+                <span v-else class="image-result-no-img">📦</span>
+                <span class="similarity-badge">
+                  {{ (p.similarity * 100).toFixed(1) }}% giống
                 </span>
               </div>
             </RouterLink>
 
-            <div class="recommend-info">
-              <RouterLink :to="`/product/${p.product_id}`" class="recommend-name-link">
-                <h3 class="recommend-name">
-                  {{ p.name || `Sản phẩm ${p.product_id}` }}
-                </h3>
+            <div class="image-result-info">
+              <RouterLink :to="`/product/${p.product_id}`" class="image-result-name">
+                {{ p.name || `Sản phẩm ${p.product_id}` }}
               </RouterLink>
 
-              <p>
-                Độ tương đồng:
-                {{ (p.similarity * 100).toFixed(2) }}%
-              </p>
-
-              <button class="recommend-btn" @click="fetchVariants(p.product_id)">
-                🛒 Chọn mua
-              </button>
+              <div v-if="p.min_selling_price" class="image-result-price">
+                {{ Number(p.min_sale_price || p.min_selling_price).toLocaleString('vi-VN') }}₫
+                <span v-if="p.min_sale_price && p.min_sale_price < p.min_selling_price"
+                  class="image-result-price-origin">
+                  {{ Number(p.min_selling_price).toLocaleString('vi-VN') }}₫
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </section>
+
+      <!-- GỢI Ý CÁ NHÂN HÓA -->
       <section v-if="recomendProduct.length > 0" class="recommend-section">
         <div class="recommend-header">
           <h2 class="recommend-title">
@@ -680,7 +570,7 @@ onBeforeUnmount(() => {
                 <span class="recommend-price-sale">
                   {{
                     Number(
-                      p.variants[0].sale_price || p.variants[0].selling_price
+                      p.variants[0].sale_price || p.variants[0].selling_price,
                     ).toLocaleString('vi-VN')
                   }}đ
                 </span>
@@ -691,15 +581,11 @@ onBeforeUnmount(() => {
                 </span>
               </div>
 
-              <button class="recommend-btn" @click="fetchVariants(p.id)">
-                🛒 Chọn mua
-              </button>
+              <button class="recommend-btn" @click="fetchVariants(p.id)">🛒 Chọn mua</button>
             </div>
           </div>
         </div>
       </section>
-
-
 
       <!-- TRUST BADGES -->
       <div class="trust-badges">
@@ -817,7 +703,7 @@ onBeforeUnmount(() => {
             <RouterLink :to="`/product/${p.id}`" class="product-name-link">
               <h4 class="product-name" :title="p.name">{{ p.name }}</h4>
             </RouterLink>
-            <div class="product-rating" >
+            <div class="product-rating">
               <span v-if="p.avg_review > 0">
                 {{
                   Number(p.avg_review).toLocaleString('vi-VN', {
@@ -828,7 +714,7 @@ onBeforeUnmount(() => {
               </span>
               <span>(Đã bán {{ p.count_sell }})</span>
             </div>
-            
+
             <div class="product-tags">
               <span class="tag tag-category">{{ p.category_name || 'Khác' }}</span>
               <span class="tag tag-brand">{{ p.brand_name || 'Khác' }}</span>
@@ -860,7 +746,7 @@ onBeforeUnmount(() => {
       </div>
     </main>
 
-    <!-- MODAL -->
+    <!-- MODAL CHỌN BIẾN THỂ -->
     <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
       <div class="modal-container">
         <div class="modal-header">
@@ -948,5 +834,5 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-@import '../../assets/Home.css'
+@import '../../assets/Home.css';
 </style>

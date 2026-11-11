@@ -112,7 +112,7 @@ const updateEmployee = async (req, res) => {
       });
     }
 
-    // Nếu đổi email thì kiểm tra email mới
+    // Kiểm tra email trùng
     if (email && email !== employee.email) {
       const emailExists = await Employee.existsByEmail(email);
 
@@ -123,6 +123,9 @@ const updateEmployee = async (req, res) => {
       }
     }
 
+    // Lấy tên ảnh mới nếu có upload
+    const avatar = req.file ? req.file.filename : employee.avatar;
+
     const updatedEmployee = await Employee.update(id, {
       full_name,
       gender,
@@ -131,6 +134,7 @@ const updateEmployee = async (req, res) => {
       address,
       phone,
       role_id,
+      avatar,
     });
 
     res.status(200).json({
@@ -138,13 +142,14 @@ const updateEmployee = async (req, res) => {
       employee: updatedEmployee,
     });
   } catch (error) {
+    console.error("Lỗi updateEmployee:", error);
+
     res.status(500).json({
       message: "Lỗi cập nhật nhân viên",
       error: error.message,
     });
   }
 };
-
 // [PATCH] /api/admin/employees/:id/status
 // Khóa / mở tài khoản
 const updateEmployeeStatus = async (req, res) => {

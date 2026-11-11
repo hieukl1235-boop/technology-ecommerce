@@ -12,6 +12,7 @@ class Employee {
         e.password,
         e.role_id,
         e.status,
+        e.avatar,
         r.name AS role_name
       FROM employees e
       JOIN roles r
@@ -40,22 +41,25 @@ class Employee {
   // Lấy tất cả nhân viên
   static async getAll() {
     const { rows } = await pool.query(`
-      SELECT
-        e.id,
-        e.full_name,
-        e.gender,
-        e.email,
-        e.date_of_birth,
-        e.address,
-        e.phone,
-        e.status,
-        e.role_id,
-        r.name AS role_name
-      FROM employees e
-      JOIN roles r
-        ON e.role_id = r.id
-      ORDER BY e.id DESC
-    `);
+    SELECT
+      e.id,
+      e.full_name,
+      e.gender,
+      e.email,
+      e.date_of_birth,
+      e.address,
+      e.phone,
+      e.status,
+      e.role_id,
+      e.avatar,
+      r.name AS role_name
+    FROM employees e
+    LEFT JOIN roles r
+      ON e.role_id = r.id
+          WHERE e.role_id !=1
+
+    ORDER BY e.id DESC
+  `);
 
     return rows;
   }
@@ -64,28 +68,28 @@ class Employee {
   static async getById(id) {
     const { rows } = await pool.query(
       `
-      SELECT
-        e.id,
-        e.full_name,
-        e.gender,
-        e.email,
-        e.date_of_birth,
-        e.address,
-        e.phone,
-        e.status,
-        e.role_id,
-        r.name AS role_name
-      FROM employees e
-      JOIN roles r
-        ON e.role_id = r.id
-      WHERE e.id = $1
-      `,
+    SELECT
+      e.id,
+      e.full_name,
+      e.gender,
+      e.email,
+      e.date_of_birth,
+      e.address,
+      e.phone,
+      e.status,
+      e.role_id,
+      e.avatar,
+      r.name AS role_name
+    FROM employees e
+    LEFT JOIN roles r
+      ON e.role_id = r.id
+    WHERE e.id = $1
+    `,
       [id],
     );
 
     return rows[0];
   }
-
   // Kiểm tra email đã tồn tại chưa
   static async existsByEmail(email) {
     const { rows } = await pool.query(
@@ -153,24 +157,30 @@ class Employee {
 
   // Cập nhật thông tin nhân viên và role
   static async update(id, data) {
-    const { full_name, gender, email, date_of_birth, address, phone, role_id } =
-      data;
+    const {
+      full_name,
+      gender,
+      email,
+      date_of_birth,
+      address,
+      phone,
+      role_id,
+      avatar,
+    } = data;
 
-    const { rows } = await pool.query(
-      `
-      UPDATE employees
-      SET
-        full_name = $1,
-        gender = $2,
-        email = $3,
-        date_of_birth = $4,
-        address = $5,
-        phone = $6,
-        role_id = $7,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = $8
-      RETURNING
-        id,
+    const result = await pool.query(
+      `UPDATE employees
+     SET full_name = $1,
+         gender = $2,
+         email = $3,
+         date_of_birth = $4,
+         address = $5,
+         phone = $6,
+         role_id = $7,
+         avatar = $8
+     WHERE id = $9
+     RETURNING *`,
+      [
         full_name,
         gender,
         email,
@@ -178,14 +188,13 @@ class Employee {
         address,
         phone,
         role_id,
-        status
-      `,
-      [full_name, gender, email, date_of_birth, address, phone, role_id, id],
+        avatar,
+        id,
+      ],
     );
 
-    return rows[0];
+    return result.rows[0];
   }
-
   // Khóa / mở tài khoản nhân viên
   static async updateStatus(id, status) {
     const { rows } = await pool.query(
@@ -205,9 +214,9 @@ class Employee {
 
   static async getShippers() {
     // Thay số 3 bằng đúng ID của role Shipper trong cơ sở dữ liệu của bạn
-    const shipperRoleId = 3; 
+    const shipperRoleId = 3;
     const query = `
-      SELECT id, full_name, phone 
+      SELECT id, full_name, phone, avatar 
       FROM employees 
       WHERE role_id = $1 AND status = 1
     `;

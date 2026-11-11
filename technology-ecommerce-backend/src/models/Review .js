@@ -81,6 +81,29 @@ class Review {
     await client.query(`DELETE FROM review_images WHERE review_id = $1`, [id]);
     await client.query(`DELETE FROM reviews WHERE id = $1`, [id]);
   }
+
+  static async getAllReviews() {
+    const result = await pool.query(
+      `SELECT r.*,pv.sku,pv.image_url,u.avatar,u.full_name,p.name AS product_name
+       FROM reviews r
+       JOIN product_variants pv ON pv.id = r.variant_id
+       JOIN users u ON u.id = r.user_id
+      JOIN products p ON p.id = pv.product_id`,
+    );
+       return result.rows;
+  }
+  static async replyToReview( reviewId, replyContent) {
+    const result = await pool.query(
+      `UPDATE reviews SET reply = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+      [replyContent, reviewId]);
+    return result.rows[0];
+  }
+  static async deleteReply(reviewId) {
+    const result = await pool.query(
+      `UPDATE reviews SET reply = NULL, updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [reviewId]);
+    return result.rows[0];
+  }
 }
 
 module.exports = Review;

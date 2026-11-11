@@ -2,25 +2,38 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 
-// ================= STATE (GIỮ NGUYÊN) =================
+// ================= STATE =================
 const orders = ref([])
 const shippers = ref([])
 const currentTab = ref(1)
 const token = localStorage.getItem('token')
 
+// Bộ lọc thanh toán
+const paymentFilter = ref('all') // 'all' | 'unpaid' | 'paid' | 'refunded'
+
+// Modal shipper
 const showModal = ref(false)
 const selectedOrderCode = ref(null)
 const selectedShipperId = ref('')
+const assignMode = ref('assign') // 'assign' | 'change'
+const currentShipperId = ref(null)
 
+// Custom select shipper (có avatar)
+const showShipperDropdown = ref(false)
+const shipperSelectRef = ref(null)
+const dropdownDirection = ref('down') // 'down' | 'up'
+
+// Modal ảnh
 const showImageModal = ref(false)
 const viewingImageUrl = ref(null)
 
+// Modal hoàn tiền
 const showRefundModal = ref(false)
 const orderCodeToRefund = ref(null)
 const refundFile = ref(null)
 const refundPreviewUrl = ref(null)
 
-// ================= UI STATE (mới) =================
+// UI state
 const isLoading = ref(false)
 const actionLoadingCode = ref(null)
 const isSubmittingRefund = ref(false)
@@ -29,7 +42,7 @@ const message = ref('')
 const messageType = ref('success')
 let messageTimer = null
 
-// Tab config (giữ nguyên order_status mapping)
+// Tab config
 const tabs = [
   { key: 1, label: 'Chờ xác nhận' },
   { key: 2, label: 'Đang chuẩn bị' },
@@ -63,7 +76,84 @@ const getPaymentMethodName = (id) => {
   return 'Khác'
 }
 
-// ================= API (GIỮ NGUYÊN ENDPOINT) =================
+const getShipperName = (order) => {
+  if (order.shipper_name) return order.shipper_name
+  if (order.shipper_id) {
+    const s = shippers.value.find((x) => x.id === order.shipper_id)
+    if (s) return s.full_name || s.username
+  }
+  return 'Chưa phân công'
+}
+
+const getShipperPhone = (order) => {
+  if (order.shipper_phone) return order.shipper_phone
+  if (order.shipper_id) {
+    const s = shippers.value.find((x) => x.id === order.shipper_id)
+    if (s) return s.phone
+  }
+  return ''
+}
+
+// Lấy avatar của shipper theo order
+// Lấy avatar của shipper theo order
+const getShipperAvatar = (order) => {
+  // 1. Ưu tiên field API trả kèm trong order (nếu có)
+  if (order.shipper_avatar) return order.shipper_avatar
+
+  // 2. Nếu không có, tìm trong danh sách shippers theo shipper_id
+  if (order.shipper_id) {
+    const s = shippers.value.find((x) => x.id === order.shipper_id)
+    if (s && s.avatar) return s.avatar
+  }
+
+  // 3. Không có avatar → trả rỗng để fallback chữ cái đầu
+  return ''
+}
+
+// Lấy chữ cái đầu của shipper (fallback khi không có avatar)
+const getShipperInitial = (order) => {
+  const name = getShipperName(order)
+  if (!name || name === 'Chưa phân công') return 'S'
+  return name.charAt(0).toUpperCase()
+}
+
+// ================= CUSTOM SELECT SHIPPER =================
+const selectedShipperInfo = computed(
+  () => shippers.value.find((s) => s.id === selectedShipperId.value) || null,
+)
+
+const getInitial = (shipper) => {
+  const name = shipper?.full_name || shipper?.username || 'S'
+  return name.charAt(0).toUpperCase()
+}
+
+const selectShipper = (shipper) => {
+  selectedShipperId.value = shipper.id
+  showShipperDropdown.value = false
+}
+
+// Toggle dropdown + tự xác định hướng mở (lên/xuống)
+const toggleShipperDropdown = () => {
+  if (!showShipperDropdown.value) {
+    const trigger = shipperSelectRef.value?.querySelector('.custom-select-trigger')
+    if (trigger) {
+      const rect = trigger.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom
+      const spaceAbove = rect.top
+      dropdownDirection.value =
+        spaceBelow < 260 && spaceAbove > spaceBelow ? 'up' : 'down'
+    }
+  }
+  showShipperDropdown.value = !showShipperDropdown.value
+}
+
+const handleClickOutsideShipper = (e) => {
+  if (shipperSelectRef.value && !shipperSelectRef.value.contains(e.target)) {
+    showShipperDropdown.value = false
+  }
+}
+
+// ================= API =================
 const fetchOrders = async () => {
   isLoading.value = true
   try {
@@ -90,11 +180,18 @@ const fetchShippers = async () => {
   }
 }
 
+// Lọc theo tab + thanh toán
 const filteredOrders = computed(() => {
-  return orders.value.filter((order) => order.order_status === currentTab.value)
+  return orders.value.filter((order) => {
+    if (order.order_status !== currentTab.value) return false
+    if (paymentFilter.value === 'paid' && order.payment_status !== 1) return false
+    if (paymentFilter.value === 'unpaid' && order.payment_status !== 0) return false
+    if (paymentFilter.value === 'refunded' && order.payment_status !== 2) return false
+    return true
+  })
 })
 
-// 1 -> 2
+// ================= ACTIONS =================
 const handlePrepareOrder = async (orderCode) => {
   if (actionLoadingCode.value) return
   actionLoadingCode.value = orderCode
@@ -115,9 +212,13 @@ const handlePrepareOrder = async (orderCode) => {
   }
 }
 
-const openAssignShipperModal = (orderCode) => {
+const openAssignShipperModal = (orderCode, mode = 'assign', shipperId = null) => {
   selectedOrderCode.value = orderCode
-  selectedShipperId.value = ''
+  assignMode.value = mode
+  currentShipperId.value = shipperId
+  selectedShipperId.value = shipperId || ''
+  showShipperDropdown.value = false
+  dropdownDirection.value = 'down'
   showModal.value = true
 }
 
@@ -129,19 +230,32 @@ const handleAssignShipper = async () => {
   if (actionLoadingCode.value) return
   actionLoadingCode.value = selectedOrderCode.value
   try {
+    const payload = { newStatus: 3, shipperId: selectedShipperId.value }
+
     const response = await axios.patch(
       `http://localhost:3000/api/admin/orders/${selectedOrderCode.value}/assign-shipper`,
-      { newStatus: 3, shipperId: selectedShipperId.value },
+      payload,
       { headers: { Authorization: `Bearer ${token}` } },
     )
     if (response.data.success) {
-      showMessage('🚚 Đã phân công shipper và chuyển sang trạng thái Đang giao hàng!', 'success')
+      showMessage(
+        assignMode.value === 'assign'
+          ? '🚚 Đã phân công shipper và chuyển sang Đang giao hàng!'
+          : '🔄 Đã đổi shipper thành công!',
+        'success',
+      )
       showModal.value = false
       await fetchOrders()
     }
   } catch (error) {
     console.error(error)
-    showMessage('❌ Phân công shipper thất bại!', 'error')
+    showMessage(
+      error.response?.data?.message ||
+      (assignMode.value === 'assign'
+        ? '❌ Phân công shipper thất bại!'
+        : '❌ Đổi shipper thất bại!'),
+      'error',
+    )
   } finally {
     actionLoadingCode.value = null
   }
@@ -188,6 +302,7 @@ const handleRetryOrder = async (orderCode) => {
   }
 }
 
+// ================= HOÀN TIỀN =================
 const openRefundModal = (orderCode) => {
   orderCodeToRefund.value = orderCode
   refundFile.value = null
@@ -238,55 +353,45 @@ const submitRefundOrder = async () => {
   }
 }
 
+// ================= ẢNH =================
 const openImageModal = (imageUrl) => {
-  // Giữ đúng logic cũ: proofs vs refunds đều dùng chung nguồn URL
-  // (giống code cũ: modal dùng /uploads/refunds/, nhưng ảnh minh chứng gọi /proofs/)
   viewingImageUrl.value = `http://localhost:3000/uploads/refunds/${imageUrl}`
   showImageModal.value = true
 }
 
-// Overload cho ảnh proof từ tab 4/6 → dùng đúng folder proofs
 const openProofImage = (proofId) => {
   viewingImageUrl.value = `http://localhost:3000/uploads/proofs/${proofId}`
   showImageModal.value = true
 }
 
+// ================= LIFECYCLE =================
 onMounted(() => {
   fetchOrders()
   fetchShippers()
+  document.addEventListener('click', handleClickOutsideShipper)
 })
 
 onBeforeUnmount(() => {
   if (messageTimer) clearTimeout(messageTimer)
   if (refundPreviewUrl.value) URL.revokeObjectURL(refundPreviewUrl.value)
+  document.removeEventListener('click', handleClickOutsideShipper)
 })
 </script>
 
 <template>
-  <div class="order-page-wrapper">
+  <div >
     <!-- HEADER -->
     <div class="page-header">
-      <button class="btn-back" @click="$router.back()" title="Quay lại">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-             fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round">
-          <line x1="19" y1="12" x2="5" y2="12"></line>
-          <polyline points="12 19 5 12 12 5"></polyline>
-        </svg>
-        <span>Quay lại</span>
-      </button>
       <div class="header-titles">
-        <div class="brand-tag">ORDER MANAGEMENT</div>
-        <h1 class="page-title">Quản Lý Đơn Hàng</h1>
+
         <p class="page-sub">
           Tổng cộng <b>{{ orders.length }}</b> đơn • Đang xem <b>{{ filteredOrders.length }}</b> đơn
         </p>
       </div>
       <button class="btn-refresh" @click="fetchOrders" :disabled="isLoading">
         <span v-if="isLoading" class="spinner-xs"></span>
-        <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round">
+        <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path>
           <polyline points="21 3 21 8 16 8"></polyline>
         </svg>
@@ -296,11 +401,7 @@ onBeforeUnmount(() => {
 
     <!-- ALERT -->
     <transition name="slide-fade">
-      <div
-        v-if="message"
-        class="alert-banner"
-        :class="messageType === 'error' ? 'alert-error' : 'alert-success'"
-      >
+      <div v-if="message" class="alert-banner" :class="messageType === 'error' ? 'alert-error' : 'alert-success'">
         <span>{{ message }}</span>
         <button type="button" class="btn-close-msg" @click="message = ''">✕</button>
       </div>
@@ -308,15 +409,24 @@ onBeforeUnmount(() => {
 
     <!-- TABS -->
     <div class="tabs-bar">
-      <button
-        v-for="tab in tabs"
-        :key="tab.key"
-        class="tab-btn"
-        :class="{ active: currentTab === tab.key }"
-        @click="currentTab = tab.key"
-      >
+      <button v-for="tab in tabs" :key="tab.key" class="tab-btn" :class="{ active: currentTab === tab.key }"
+        @click="currentTab = tab.key">
         <span>{{ tab.label }}</span>
         <span class="tab-count">{{ tabCounts[tab.key] || 0 }}</span>
+      </button>
+    </div>
+
+    <!-- FILTER THANH TOÁN -->
+    <div class="filter-bar">
+      <span class="filter-label">💰 Thanh toán:</span>
+      <button v-for="opt in [
+        { key: 'all', label: 'Tất cả' },
+        { key: 'unpaid', label: 'Chưa thanh toán' },
+        { key: 'paid', label: 'Đã thanh toán' },
+        { key: 'refunded', label: 'Đã hoàn tiền' },
+      ]" :key="opt.key" class="filter-chip" :class="{ active: paymentFilter === opt.key }"
+        @click="paymentFilter = opt.key">
+        {{ opt.label }}
       </button>
     </div>
 
@@ -332,7 +442,7 @@ onBeforeUnmount(() => {
       <div v-else-if="filteredOrders.length === 0" class="empty-state-big">
         <div class="empty-icon">📭</div>
         <p class="empty-title">Không có đơn hàng nào</p>
-        <p class="empty-sub">Hiện không có đơn hàng nào ở trạng thái này.</p>
+        <p class="empty-sub">Hiện không có đơn hàng nào phù hợp bộ lọc.</p>
       </div>
 
       <!-- Table -->
@@ -378,12 +488,8 @@ onBeforeUnmount(() => {
               <!-- Sản phẩm -->
               <td>
                 <div v-for="(item, index) in order.items" :key="index" class="product-item-row">
-                  <img
-                    v-if="item.image"
-                    :src="`http://localhost:3000/uploads/variants/${item.image}`"
-                    class="product-img"
-                    loading="lazy"
-                  />
+                  <img v-if="item.image" :src="`http://localhost:3000/uploads/variants/${item.image}`"
+                    class="product-img" loading="lazy" />
                   <div v-else class="product-img product-img-empty">📦</div>
                   <div class="product-detail">
                     <span class="product-name">{{ item.product_name }}</span>
@@ -404,57 +510,78 @@ onBeforeUnmount(() => {
               <td class="pe-4">
                 <!-- TAB 1 -->
                 <div v-if="order.order_status === 1" class="action-group">
-                  <button
-                    class="btn-action btn-primary-action"
-                    :disabled="actionLoadingCode === order.order_code"
-                    @click="handlePrepareOrder(order.order_code)"
-                  >
+                  <button class="btn-action btn-primary-action" :disabled="actionLoadingCode === order.order_code"
+                    @click="handlePrepareOrder(order.order_code)">
                     <span v-if="actionLoadingCode === order.order_code" class="spinner-xs"></span>
                     <span>🚀 Xác nhận &amp; Chuẩn bị</span>
                   </button>
-                  <button
-                    class="btn-action btn-danger-action"
-                    :disabled="actionLoadingCode === order.order_code"
-                    @click="handleCancelOrder(order.order_code)"
-                  >
+                  <button class="btn-action btn-danger-action" :disabled="actionLoadingCode === order.order_code"
+                    @click="handleCancelOrder(order.order_code)">
                     ❌ Hủy đơn
                   </button>
                 </div>
 
                 <!-- TAB 2 -->
                 <div v-else-if="order.order_status === 2" class="action-group">
-                  <button
-                    class="btn-action btn-warning-action"
-                    @click="openAssignShipperModal(order.order_code)"
-                  >
+                  <button class="btn-action btn-warning-action" @click="openAssignShipperModal(order.order_code)">
                     🛵 Giao Shipper
                   </button>
-                  <button
-                    class="btn-action btn-danger-action"
-                    :disabled="actionLoadingCode === order.order_code"
-                    @click="handleCancelOrder(order.order_code)"
-                  >
+                  <button class="btn-action btn-danger-action" :disabled="actionLoadingCode === order.order_code"
+                    @click="handleCancelOrder(order.order_code)">
                     ❌ Hủy đơn
                   </button>
                 </div>
 
                 <!-- TAB 3 -->
-                <div v-else-if="order.order_status === 3" class="info-inline info-warning">
-                  ⏳ Shipper đang giao hàng...
+                <div v-else-if="order.order_status === 3" class="action-group">
+                  <div class="shipper-card">
+                    <div class="shipper-avatar">
+                      <img v-if="getShipperAvatar(order)"
+                        :src="`http://localhost:3000/uploads/avatars/${getShipperAvatar(order)}`" alt="Shipper"
+                        class="shipper-avatar-img" />
+                      <span v-else>{{ getShipperInitial(order) }}</span>
+                    </div>
+                    <div class="shipper-info">
+                      <span class="shipper-name">{{ getShipperName(order) }}</span>
+                      <span v-if="getShipperPhone(order)" class="shipper-phone">
+                        📞 {{ getShipperPhone(order) }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <span class="info-inline info-warning">⏳ Đang giao hàng</span>
+
+                  <button class="btn-action btn-change-shipper" :disabled="actionLoadingCode === order.order_code"
+                    @click="openAssignShipperModal(order.order_code, 'change', order.shipper_id)">
+                    <span v-if="actionLoadingCode === order.order_code" class="spinner-xs"></span>
+                    <span v-else>🔄 Đổi shipper</span>
+                  </button>
                 </div>
 
                 <!-- TAB 4 -->
                 <div v-else-if="order.order_status === 4" class="action-group">
                   <span class="info-inline info-success">✨ Đã giao thành công</span>
+
+                  <!-- Shipper đã giao đơn này -->
+                  <div class="shipper-card shipper-card-success">
+                    <div class="shipper-avatar">
+                      <img v-if="getShipperAvatar(order)"
+                        :src="`http://localhost:3000/uploads/avatars/${getShipperAvatar(order)}`" alt="Shipper"
+                        class="shipper-avatar-img" />
+                      <span v-else>{{ getShipperInitial(order) }}</span>
+                    </div>
+                    <div class="shipper-info">
+                      <span class="shipper-name">{{ getShipperName(order) }}</span>
+                      <span v-if="getShipperPhone(order)" class="shipper-phone">
+                        📞 {{ getShipperPhone(order) }}
+                      </span>
+                    </div>
+                  </div>
+
                   <div v-if="order.delivery_proof_id" class="proof-wrap">
                     <span class="proof-label">Ảnh minh chứng:</span>
-                    <img
-                      :src="`http://localhost:3000/uploads/proofs/${order.delivery_proof_id}`"
-                      alt="Proof"
-                      class="proof-thumbnail"
-                      @click="openProofImage(order.delivery_proof_id)"
-                      title="Bấm để xem lớn"
-                    />
+                    <img :src="`http://localhost:3000/uploads/proofs/${order.delivery_proof_id}`" alt="Proof"
+                      class="proof-thumbnail" @click="openProofImage(order.delivery_proof_id)" title="Bấm để xem lớn" />
                   </div>
                 </div>
 
@@ -466,25 +593,15 @@ onBeforeUnmount(() => {
                   </div>
                   <div v-if="order.delivery_proof_id" class="proof-wrap">
                     <span class="proof-label">Ảnh minh chứng:</span>
-                    <img
-                      :src="`http://localhost:3000/uploads/proofs/${order.delivery_proof_id}`"
-                      alt="Failed Proof"
-                      class="proof-thumbnail"
-                      @click="openProofImage(order.delivery_proof_id)"
-                    />
+                    <img :src="`http://localhost:3000/uploads/proofs/${order.delivery_proof_id}`" alt="Failed Proof"
+                      class="proof-thumbnail" @click="openProofImage(order.delivery_proof_id)" />
                   </div>
-                  <button
-                    class="btn-action btn-primary-action"
-                    :disabled="actionLoadingCode === order.order_code"
-                    @click="handleRetryOrder(order.order_code)"
-                  >
+                  <button class="btn-action btn-primary-action" :disabled="actionLoadingCode === order.order_code"
+                    @click="handleRetryOrder(order.order_code)">
                     🔄 Giao lại đơn
                   </button>
-                  <button
-                    class="btn-action btn-danger-action"
-                    :disabled="actionLoadingCode === order.order_code"
-                    @click="handleCancelOrder(order.order_code)"
-                  >
+                  <button class="btn-action btn-danger-action" :disabled="actionLoadingCode === order.order_code"
+                    @click="handleCancelOrder(order.order_code)">
                     ❌ Hủy đơn hoàn kho
                   </button>
                 </div>
@@ -504,12 +621,8 @@ onBeforeUnmount(() => {
                     <span class="info-inline info-success">✅ Đã hoàn tiền</span>
                     <div v-if="order.refund_image_url" class="proof-wrap">
                       <span class="proof-label">Biên lai:</span>
-                      <img
-                        :src="`http://localhost:3000/uploads/refunds/${order.refund_image_url}`"
-                        alt="Refund Proof"
-                        class="proof-thumbnail"
-                        @click="openImageModal(order.refund_image_url)"
-                      />
+                      <img :src="`http://localhost:3000/uploads/refunds/${order.refund_image_url}`" alt="Refund Proof"
+                        class="proof-thumbnail" @click="openImageModal(order.refund_image_url)" />
                     </div>
                   </div>
                 </div>
@@ -524,27 +637,74 @@ onBeforeUnmount(() => {
     <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
       <div class="modal-card">
         <div class="modal-header">
-          <h3 class="modal-title">🚚 Phân công Shipper</h3>
+          <h3 class="modal-title">
+            {{ assignMode === 'assign' ? '🚚 Phân công Shipper' : '🔄 Đổi Shipper' }}
+          </h3>
           <button class="btn-close-circle" @click="showModal = false">✕</button>
         </div>
         <div class="modal-body">
-          <p class="modal-sub">Chọn nhân viên giao hàng cho đơn <b>{{ selectedOrderCode }}</b></p>
-          <select v-model="selectedShipperId" class="tech-input">
-            <option disabled value="">-- Chọn Shipper --</option>
-            <option v-for="shipper in shippers" :key="shipper.id" :value="shipper.id">
-              {{ shipper.full_name || shipper.username }} (SĐT: {{ shipper.phone }})
-            </option>
-          </select>
+          <p class="modal-sub">
+            {{ assignMode === 'assign' ? 'Chọn nhân viên giao hàng cho đơn' : 'Chọn shipper mới cho đơn' }}
+            <b>{{ selectedOrderCode }}</b>
+          </p>
+
+          <p v-if="assignMode === 'change' && currentShipperId" class="modal-current">
+            Shipper hiện tại:
+            <b>{{shippers.find((s) => s.id === currentShipperId)?.full_name || '—'}}</b>
+          </p>
+
+          <!-- Custom dropdown shipper có avatar -->
+          <div class="custom-select" ref="shipperSelectRef">
+            <!-- Trigger -->
+            <div class="custom-select-trigger tech-input" :class="{ 'is-open': showShipperDropdown }"
+              @click="toggleShipperDropdown">
+              <div v-if="selectedShipperInfo" class="d-flex align-items-center gap-2 flex-grow-1">
+                <div class="shipper-avatar-xs">
+                  <img v-if="selectedShipperInfo.avatar"
+                    :src="`http://localhost:3000/uploads/avatars/${selectedShipperInfo.avatar}`" alt="avatar" />
+                  <span v-else>{{ getInitial(selectedShipperInfo) }}</span>
+                </div>
+                <div class="shipper-select-text">
+                  <span class="shipper-select-name">
+                    {{ selectedShipperInfo.full_name || selectedShipperInfo.username }}
+                  </span>
+                  <span class="shipper-select-phone">📞 {{ selectedShipperInfo.phone }}</span>
+                </div>
+              </div>
+              <span v-else class="text-muted flex-grow-1">-- Chọn Shipper --</span>
+
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                class="dropdown-arrow" :class="{ rotated: showShipperDropdown }">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
+
+            <!-- Menu -->
+            <ul v-if="showShipperDropdown" class="custom-select-menu"
+              :class="{ 'drop-up': dropdownDirection === 'up' }">
+              <li v-for="shipper in shippers" :key="shipper.id" class="custom-select-item"
+                :class="{ active: selectedShipperId === shipper.id }" @click="selectShipper(shipper)">
+                <div class="shipper-avatar-xs">
+                  <img v-if="shipper.avatar" :src="`http://localhost:3000/uploads/avatars/${shipper.avatar}`"
+                    alt="avatar" />
+                  <span v-else>{{ getInitial(shipper) }}</span>
+                </div>
+                <div class="flex-grow-1">
+                  <div class="fw-semibold">{{ shipper.full_name || shipper.username }}</div>
+                  <small class="text-muted">SĐT: {{ shipper.phone }}</small>
+                </div>
+                <span v-if="selectedShipperId === shipper.id" class="check-mark">✓</span>
+              </li>
+            </ul>
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn-cancel-tech" @click="showModal = false">Đóng</button>
-          <button
-            class="btn-primary-tech"
-            :disabled="!selectedShipperId || actionLoadingCode === selectedOrderCode"
-            @click="handleAssignShipper"
-          >
+          <button class="btn-primary-tech" :disabled="!selectedShipperId || actionLoadingCode === selectedOrderCode"
+            @click="handleAssignShipper">
             <span v-if="actionLoadingCode === selectedOrderCode" class="spinner-sm"></span>
-            <span>Xác nhận giao</span>
+            <span>{{ assignMode === 'assign' ? 'Xác nhận giao' : 'Xác nhận đổi' }}</span>
           </button>
         </div>
       </div>
@@ -560,13 +720,8 @@ onBeforeUnmount(() => {
         <div class="modal-body">
           <p class="modal-sub">Đơn hàng: <b>{{ orderCodeToRefund }}</b></p>
           <label class="file-upload">
-            <input
-              ref="refundFileInputRef"
-              type="file"
-              accept="image/*"
-              @change="handleRefundFileChange"
-              :disabled="isSubmittingRefund"
-            />
+            <input ref="refundFileInputRef" type="file" accept="image/*" @change="handleRefundFileChange"
+              :disabled="isSubmittingRefund" />
             <span class="file-upload-btn">
               📁 {{ refundFile ? 'Đổi ảnh khác' : 'Chọn ảnh biên lai' }}
             </span>
@@ -628,7 +783,12 @@ onBeforeUnmount(() => {
   margin-bottom: 24px;
   flex-wrap: wrap;
 }
-.header-titles { flex: 1; min-width: 0; }
+
+.header-titles {
+  flex: 1;
+  min-width: 0;
+}
+
 .brand-tag {
   font-size: 0.725rem;
   font-weight: 700;
@@ -636,6 +796,7 @@ onBeforeUnmount(() => {
   letter-spacing: 0.08em;
   margin-bottom: 4px;
 }
+
 .page-title {
   font-size: 1.75rem;
   font-weight: 800;
@@ -643,10 +804,19 @@ onBeforeUnmount(() => {
   margin: 0 0 4px 0;
   letter-spacing: -0.02em;
 }
-.page-sub { margin: 0; font-size: 0.85rem; color: #64748b; }
-.page-sub b { color: #0284c7; }
 
-.btn-back, .btn-refresh {
+.page-sub {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.page-sub b {
+  color: #0284c7;
+}
+
+.btn-back,
+.btn-refresh {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -662,13 +832,22 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   margin-top: 4px;
 }
-.btn-back:hover, .btn-refresh:hover:not(:disabled) {
+
+.btn-back:hover,
+.btn-refresh:hover:not(:disabled) {
   background: #f0f9ff;
   color: #0284c7;
   border-color: #0284c7;
 }
-.btn-back:hover { transform: translateX(-2px); }
-.btn-refresh:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-back:hover {
+  transform: translateX(-2px);
+}
+
+.btn-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 /* ============ ALERT ============ */
 .alert-banner {
@@ -682,29 +861,60 @@ onBeforeUnmount(() => {
   margin-bottom: 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
-.alert-success { background-color: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; }
-.alert-error { background-color: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; }
-.btn-close-msg {
-  background: transparent; border: none; color: inherit;
-  cursor: pointer; font-size: 0.9rem; margin-left: auto;
-  opacity: 0.6; padding: 4px 8px; border-radius: 4px;
+
+.alert-success {
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
 }
-.btn-close-msg:hover { opacity: 1; background: rgba(0, 0, 0, 0.05); }
-.slide-fade-enter-active, .slide-fade-leave-active { transition: all 0.3s ease; }
-.slide-fade-enter-from, .slide-fade-leave-to { opacity: 0; transform: translateY(-10px); }
+
+.alert-error {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.btn-close-msg {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-left: auto;
+  opacity: 0.6;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.btn-close-msg:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.slide-fade-enter-active,
+.slide-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
 
 /* ============ TABS ============ */
 .tabs-bar {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
   background: #ffffff;
   padding: 8px;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
+
 .tab-btn {
   display: inline-flex;
   align-items: center;
@@ -720,12 +930,18 @@ onBeforeUnmount(() => {
   transition: all 0.2s;
   white-space: nowrap;
 }
-.tab-btn:hover { background: #f1f5f9; color: #0f172a; }
+
+.tab-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
 .tab-btn.active {
   background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
   color: #ffffff;
   box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
 }
+
 .tab-count {
   display: inline-flex;
   align-items: center;
@@ -739,9 +955,54 @@ onBeforeUnmount(() => {
   font-size: 0.72rem;
   font-weight: 700;
 }
+
 .tab-btn.active .tab-count {
   background: rgba(255, 255, 255, 0.25);
   color: #ffffff;
+}
+
+/* ============ FILTER BAR ============ */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.filter-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #475569;
+  margin-right: 4px;
+}
+
+.filter-chip {
+  padding: 7px 14px;
+  background: #f1f5f9;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.filter-chip:hover {
+  background: #e2e8f0;
+}
+
+.filter-chip.active {
+  background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
 }
 
 /* ============ CARD BOX ============ */
@@ -765,8 +1026,15 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid #e2e8f0;
   white-space: nowrap;
 }
-.custom-table tbody tr { transition: background-color 0.15s ease; }
-.custom-table tbody tr:hover { background-color: #f8fafc; }
+
+.custom-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.custom-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
 .custom-table tbody td {
   padding: 14px 12px;
   border-bottom: 1px solid #f1f5f9;
@@ -781,7 +1049,12 @@ onBeforeUnmount(() => {
   font-size: 0.95rem;
   margin-bottom: 3px;
 }
-.order-date { display: block; font-size: 0.75rem; color: #94a3b8; }
+
+.order-date {
+  display: block;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
 
 .customer-name {
   display: block;
@@ -789,6 +1062,7 @@ onBeforeUnmount(() => {
   color: #0f172a;
   font-size: 0.9rem;
 }
+
 .phone-text {
   display: block;
   color: #d97706;
@@ -796,6 +1070,7 @@ onBeforeUnmount(() => {
   font-size: 0.82rem;
   margin-top: 2px;
 }
+
 .address-text {
   display: block;
   color: #64748b;
@@ -811,6 +1086,7 @@ onBeforeUnmount(() => {
   font-size: 0.78rem;
   color: #475569;
 }
+
 .pay-row {
   display: flex;
   gap: 6px;
@@ -818,9 +1094,21 @@ onBeforeUnmount(() => {
   margin-bottom: 2px;
   flex-wrap: wrap;
 }
-.pay-label { color: #94a3b8; font-weight: 600; }
-.paid-tag { color: #059669; font-weight: 700; }
-.unpaid-tag { color: #dc2626; font-weight: 700; }
+
+.pay-label {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.paid-tag {
+  color: #059669;
+  font-weight: 700;
+}
+
+.unpaid-tag {
+  color: #dc2626;
+  font-weight: 700;
+}
 
 /* ============ PRODUCT ITEMS ============ */
 .product-item-row {
@@ -831,7 +1119,12 @@ onBeforeUnmount(() => {
   margin-bottom: 8px;
   border-bottom: 1px dashed #f1f5f9;
 }
-.product-item-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+.product-item-row:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
 
 .product-img {
   width: 44px;
@@ -842,6 +1135,7 @@ onBeforeUnmount(() => {
   background: #ffffff;
   flex-shrink: 0;
 }
+
 .product-img-empty {
   display: flex;
   align-items: center;
@@ -849,11 +1143,33 @@ onBeforeUnmount(() => {
   color: #cbd5e1;
   font-size: 18px;
 }
-.product-detail { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.product-name { font-weight: 700; color: #0f172a; font-size: 0.85rem; }
-.product-sku { color: #94a3b8; font-size: 0.72rem; }
-.product-qty { color: #475569; font-size: 0.78rem; }
-.product-qty b { color: #0284c7; }
+
+.product-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.product-name {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.85rem;
+}
+
+.product-sku {
+  color: #94a3b8;
+  font-size: 0.72rem;
+}
+
+.product-qty {
+  color: #475569;
+  font-size: 0.78rem;
+}
+
+.product-qty b {
+  color: #0284c7;
+}
 
 .total-amount {
   color: #dc2626;
@@ -863,7 +1179,11 @@ onBeforeUnmount(() => {
 }
 
 /* ============ ACTION GROUPS ============ */
-.action-group { display: flex; flex-direction: column; gap: 6px; }
+.action-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 
 .btn-action {
   display: inline-flex;
@@ -879,13 +1199,18 @@ onBeforeUnmount(() => {
   transition: all 0.2s;
   white-space: nowrap;
 }
-.btn-action:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 .btn-primary-action {
   background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
 }
+
 .btn-primary-action:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
@@ -896,6 +1221,7 @@ onBeforeUnmount(() => {
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(217, 119, 6, 0.25);
 }
+
 .btn-warning-action:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(217, 119, 6, 0.35);
@@ -906,6 +1232,7 @@ onBeforeUnmount(() => {
   color: #dc2626;
   border: 1.5px solid #fecaca;
 }
+
 .btn-danger-action:hover:not(:disabled) {
   background: #fef2f2;
   border-color: #dc2626;
@@ -917,7 +1244,22 @@ onBeforeUnmount(() => {
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
 }
-.btn-refund-action:hover { transform: translateY(-1px); }
+
+.btn-refund-action:hover {
+  transform: translateY(-1px);
+}
+
+.btn-change-shipper {
+  background: #ffffff;
+  color: #0284c7;
+  border: 1.5px solid #bae6fd;
+}
+
+.btn-change-shipper:hover:not(:disabled) {
+  background: #f0f9ff;
+  border-color: #0284c7;
+  transform: translateY(-1px);
+}
 
 .info-inline {
   display: inline-flex;
@@ -929,9 +1271,86 @@ onBeforeUnmount(() => {
   border-radius: 6px;
   width: fit-content;
 }
-.info-warning { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
-.info-success { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
-.info-danger { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+
+.info-warning {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.info-success {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.info-danger {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+/* ============ SHIPPER CARD (tab 3 + tab 4) ============ */
+.shipper-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 10px;
+}
+
+.shipper-card-success {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.shipper-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  color: #0284c7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1px solid #bae6fd;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.2);
+}
+
+.shipper-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.shipper-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.shipper-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shipper-phone {
+  font-size: 0.75rem;
+  color: #0369a1;
+  font-weight: 600;
+}
 
 .note-box {
   background: #fef2f2;
@@ -943,7 +1362,12 @@ onBeforeUnmount(() => {
   word-break: break-word;
 }
 
-.refund-block { display: flex; flex-direction: column; gap: 6px; }
+.refund-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .refund-warning {
   display: block;
   font-size: 0.75rem;
@@ -952,8 +1376,18 @@ onBeforeUnmount(() => {
 }
 
 /* ============ PROOF IMAGE ============ */
-.proof-wrap { display: flex; flex-direction: column; gap: 4px; }
-.proof-label { font-size: 0.72rem; color: #94a3b8; font-weight: 600; }
+.proof-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.proof-label {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
 .proof-thumbnail {
   width: 54px;
   height: 54px;
@@ -963,6 +1397,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
   transition: all 0.2s;
 }
+
 .proof-thumbnail:hover {
   transform: scale(1.06);
   border-color: #0284c7;
@@ -978,41 +1413,72 @@ onBeforeUnmount(() => {
   padding: 80px 20px;
   gap: 14px;
 }
-.loading-state p { margin: 0; color: #64748b; font-size: 0.9rem; }
+
+.loading-state p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
 
 .empty-state-big {
   text-align: center;
   padding: 70px 20px;
 }
-.empty-icon { font-size: 52px; opacity: 0.5; margin-bottom: 10px; }
-.empty-title { margin: 0 0 4px 0; font-weight: 700; color: #475569; font-size: 1.05rem; }
-.empty-sub { margin: 0; font-size: 0.85rem; color: #94a3b8; }
+
+.empty-icon {
+  font-size: 52px;
+  opacity: 0.5;
+  margin-bottom: 10px;
+}
+
+.empty-title {
+  margin: 0 0 4px 0;
+  font-weight: 700;
+  color: #475569;
+  font-size: 1.05rem;
+}
+
+.empty-sub {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
 
 /* ============ SPINNERS ============ */
 .spinner {
-  width: 36px; height: 36px;
+  width: 36px;
+  height: 36px;
   border: 3px solid #e2e8f0;
   border-top-color: #0284c7;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
+
 .spinner-sm {
-  width: 14px; height: 14px;
+  width: 14px;
+  height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.4);
   border-top-color: #ffffff;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
   display: inline-block;
 }
+
 .spinner-xs {
-  width: 12px; height: 12px;
+  width: 12px;
+  height: 12px;
   border: 2px solid rgba(2, 132, 199, 0.25);
   border-top-color: #0284c7;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
   display: inline-block;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* ============ MODAL ============ */
 .modal-overlay {
@@ -1036,14 +1502,24 @@ onBeforeUnmount(() => {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   animation: slideUp 0.3s ease-out;
 }
-.modal-image { max-width: 640px; }
+
+.modal-image {
+  max-width: 640px;
+}
 
 @keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .modal-header {
@@ -1053,32 +1529,67 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  border-radius: 14px 14px 0 0;
+  background: #ffffff;
 }
+
 .modal-title {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 800;
   color: #0f172a;
 }
+
 .btn-close-circle {
-  width: 32px; height: 32px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: #f1f5f9;
   border: none;
   color: #475569;
   cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-weight: bold;
   transition: all 0.2s;
 }
+
 .btn-close-circle:hover {
-  background: #ef4444; color: #ffffff;
+  background: #ef4444;
+  color: #ffffff;
   transform: rotate(90deg);
 }
 
-.modal-body { padding: 20px 22px; }
-.modal-sub { margin: 0 0 12px 0; font-size: 0.88rem; color: #64748b; }
-.modal-sub b { color: #0284c7; }
+.modal-body {
+  padding: 20px 22px;
+  overflow-y: auto;
+  max-height: calc(90vh - 130px);
+}
+
+.modal-sub {
+  margin: 0 0 12px 0;
+  font-size: 0.88rem;
+  color: #64748b;
+}
+
+.modal-sub b {
+  color: #0284c7;
+}
+
+.modal-current {
+  margin: 0 0 12px 0;
+  padding: 8px 12px;
+  background: #f0f9ff;
+  border-left: 3px solid #0284c7;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: #0369a1;
+}
+
+.modal-current b {
+  color: #0f172a;
+}
 
 .modal-footer {
   padding: 14px 22px;
@@ -1087,6 +1598,7 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+  border-radius: 0 0 14px 14px;
 }
 
 /* ============ INPUTS ============ */
@@ -1103,14 +1615,198 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   font-family: inherit;
 }
+
 .tech-input:focus {
   background-color: #ffffff;
   border-color: #0284c7;
   box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
 }
 
-.file-upload { display: block; cursor: pointer; margin-bottom: 12px; }
-.file-upload input[type="file"] { display: none; }
+/* ============ CUSTOM SELECT SHIPPER (có avatar) ============ */
+.custom-select {
+  position: relative;
+  width: 100%;
+}
+
+.custom-select-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  min-height: 44px;
+}
+
+.custom-select-trigger.is-open {
+  border-color: #0284c7;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+
+.dropdown-arrow {
+  color: #94a3b8;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.dropdown-arrow.rotated {
+  transform: rotate(180deg);
+  color: #0284c7;
+}
+
+.custom-select-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  list-style: none;
+  padding: 6px;
+  margin: 0;
+  z-index: 100;
+  animation: dropdownIn 0.15s ease-out;
+}
+
+.custom-select-menu.drop-up {
+  top: auto;
+  bottom: calc(100% + 4px);
+  animation: dropdownUp 0.15s ease-out;
+}
+
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dropdownUp {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.custom-select-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.custom-select-item:hover {
+  background: #f0f9ff;
+}
+
+.custom-select-item.active {
+  background: #e0f2fe;
+}
+
+.custom-select-item.active .fw-semibold {
+  color: #0284c7;
+}
+
+.check-mark {
+  color: #0284c7;
+  font-weight: 800;
+  margin-left: auto;
+}
+
+/* Avatar nhỏ trong dropdown */
+.shipper-avatar-xs {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  color: #0284c7;
+  font-weight: 700;
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1px solid #bae6fd;
+}
+
+.shipper-avatar-xs img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* Text trong trigger */
+.shipper-select-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  min-width: 0;
+}
+
+.shipper-select-name {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shipper-select-phone {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Scrollbar đẹp cho dropdown */
+.custom-select-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-select-menu::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.custom-select-menu::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.custom-select-menu::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ============ FILE UPLOAD ============ */
+.file-upload {
+  display: block;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+.file-upload input[type="file"] {
+  display: none;
+}
+
 .file-upload-btn {
   display: flex;
   align-items: center;
@@ -1125,13 +1821,18 @@ onBeforeUnmount(() => {
   font-size: 0.9rem;
   transition: all 0.2s;
 }
+
 .file-upload:hover .file-upload-btn {
   background: #f0f9ff;
   border-color: #0284c7;
   color: #0284c7;
 }
 
-.preview-container { text-align: center; padding: 10px; }
+.preview-container {
+  text-align: center;
+  padding: 10px;
+}
+
 .preview-img {
   max-width: 100%;
   max-height: 200px;
@@ -1153,11 +1854,16 @@ onBeforeUnmount(() => {
   cursor: pointer;
   transition: all 0.2s;
 }
+
 .btn-cancel-tech:hover:not(:disabled) {
   background: #f1f5f9;
   border-color: #94a3b8;
 }
-.btn-cancel-tech:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-cancel-tech:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 .btn-primary-tech {
   padding: 9px 20px;
@@ -1174,11 +1880,17 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 6px;
 }
+
 .btn-primary-tech:hover:not(:disabled) {
   background: linear-gradient(135deg, #0369a1 0%, #1d4ed8 100%);
   transform: translateY(-1px);
 }
-.btn-primary-tech:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+.btn-primary-tech:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
 
 .img-enlarged {
   max-width: 100%;
@@ -1191,13 +1903,33 @@ onBeforeUnmount(() => {
 
 /* ============ RESPONSIVE ============ */
 @media (max-width: 992px) {
-  .order-page-wrapper { padding: 22px 20px; }
+  .order-page-wrapper {
+    padding: 22px 20px;
+  }
 }
+
 @media (max-width: 640px) {
-  .order-page-wrapper { padding: 16px 12px; }
-  .page-title { font-size: 1.4rem; }
-  .page-header { flex-direction: column; align-items: stretch; }
-  .btn-back, .btn-refresh { justify-content: center; }
-  .tabs-bar { overflow-x: auto; flex-wrap: nowrap; }
+  .order-page-wrapper {
+    padding: 16px 12px;
+  }
+
+  .page-title {
+    font-size: 1.4rem;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn-back,
+  .btn-refresh {
+    justify-content: center;
+  }
+
+  .tabs-bar {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
 }
 </style>

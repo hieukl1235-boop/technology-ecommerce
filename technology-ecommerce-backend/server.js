@@ -61,6 +61,7 @@ app.use("/api/shipper/orders", require("./src/routes/shipper/orderRoutes"));
 app.use("/api/chat", chatRoutes);
 app.use("/api/notifications", NotificationRoutes);
 app.use("/api/admin/statistics", statisticsRoutes);
+app.use("/api/admin/reviews", require("./src/routes/admin/reviewRoutes"));
 const server = http.createServer(app);
 
 const io = new Server(server, {
