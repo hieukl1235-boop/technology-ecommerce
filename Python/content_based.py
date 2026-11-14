@@ -8,10 +8,17 @@ def build_content_model(products):
 
     products = products.copy().reset_index(drop=True)
     products["features"] = (
-        products["name"].fillna("").astype(str) + " " +
-        products["description"].fillna("").astype(str) + " " +
-        "category_" + products["category_id"].fillna(0).astype(str) + " " +
-        "brand_" + products["brand_id"].fillna(0).astype(str)
+            products["name"].fillna("").astype(str) + " " +
+            products["description"].fillna("").astype(str) + " " +
+            "category_" + products["category_name"].fillna("").astype(str) + " " +
+            "brand_" + products["brand_name"].fillna("").astype(str)
+    )
+    print("\n===== KIỂM TRA FEATURES =====")
+
+    print(
+        products[[
+            "features"
+        ]].head(5).to_string(index=False)
     )
     vectorizer = TfidfVectorizer()
     tfidf_matrix = vectorizer.fit_transform(products["features"])

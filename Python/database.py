@@ -27,8 +27,14 @@ def load_products():
             p.name,
             p.description,
             p.category_id,
-            p.brand_id
+            c.name AS category_name,
+            p.brand_id,
+            b.name AS brand_name
         FROM products AS p
+        LEFT JOIN categories AS c
+            ON p.category_id = c.id
+        LEFT JOIN brands AS b
+            ON p.brand_id = b.id
         WHERE p.status = 1
         ORDER BY p.id
     """
