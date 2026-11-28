@@ -44,7 +44,6 @@ exports.authenticateUser = (req, res, next) => {
     return res.status(401).json({ message: "Token không hợp lệ" });
   }
 };
-
 exports.authorizePermission = (permission) => {
   return async (req, res, next) => {
     try {

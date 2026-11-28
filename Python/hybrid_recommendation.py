@@ -31,9 +31,9 @@ def recommend_hybrid(
     item_result,
     user_result,
     top_n=5,
-    content_weight=0.4,
-    item_weight=0.3,
-    user_weight=0.3
+    content_weight=0.2,
+    item_weight=0.4,
+    user_weight=0.4
 ):
     """
     Kết hợp kết quả từ Content-Based, Item-Based

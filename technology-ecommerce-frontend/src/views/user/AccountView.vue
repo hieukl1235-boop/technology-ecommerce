@@ -9,6 +9,9 @@ const password = ref('')
 const dateOfBirth = ref('')
 const gender = ref('')
 const status = ref('')
+const bank_name = ref('')
+const bank_account_number = ref('')
+const bank_account_name = ref('')
 const isLoading = ref(false)
 const isSubmitting = ref(false)
 
@@ -50,6 +53,9 @@ const fetchedUserData = async () => {
     dateOfBirth.value = user.date_of_birth ? user.date_of_birth.split('T')[0] : ''
     gender.value = user.gender !== undefined && user.gender !== null ? String(user.gender) : ''
     status.value = user.status || ''
+    bank_name.value = user.bank_name || ''
+    bank_account_number.value = user.bank_account_number || ''
+    bank_account_name.value = user.bank_account_name || ''
     if (user.avatar) {
       avatarUrl.value = `http://localhost:3000/uploads/avatars/${user.avatar}`
     }
@@ -184,6 +190,9 @@ const handleSubmit = async () => {
     date_of_birth: dateOfBirth.value,
     gender: gender.value,
     status: status.value,
+    bank_name: bank_name.value.trim(),
+    bank_account_number: bank_account_number.value.trim(),
+    bank_account_name: bank_account_name.value.trim(),
   }
 
   try {
@@ -321,6 +330,19 @@ onBeforeUnmount(() => {
                 <option value="1">Nam</option>
                 <option value="0">Nữ</option>
               </select>
+            </div>
+            <div class="form-group">
+              <label>Ngân hàng</label>
+              <input type="text" v-model="bank_name" placeholder="Nhập tên ngân hàng" :disabled="isSubmitting" />
+            </div>
+            <div class="form-group">
+              <label>Số tài khoản</label>
+              <input type="text" v-model="bank_account_number" placeholder="Nhập tên ngân hàng" :disabled="isSubmitting" />
+            </div>
+            <div class="form-group">
+              <label>Tên tài khoản</label>
+              <input type="text" v-model="bank_account_name" placeholder="Nhập tên ngân hàng"
+                :disabled="isSubmitting" />
             </div>
           </div>
 

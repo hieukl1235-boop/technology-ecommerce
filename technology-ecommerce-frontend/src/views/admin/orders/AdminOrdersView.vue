@@ -168,7 +168,6 @@ const fetchOrders = async () => {
     isLoading.value = false
   }
 }
-
 const fetchShippers = async () => {
   try {
     const response = await axios.get('http://localhost:3000/api/admin/employees/ship', {
@@ -379,7 +378,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div >
+  <div>
     <!-- HEADER -->
     <div class="page-header">
       <div class="header-titles">
@@ -470,6 +469,8 @@ onBeforeUnmount(() => {
                 <span class="customer-name">{{ order.recipient_name }}</span>
                 <span class="phone-text">📞 {{ order.phone }}</span>
                 <span class="address-text">{{ order.shipping_address }}</span>
+                <span class="address-text">{{ order.bank_name }} - {{ order.bank_account_number }} - {{
+                  order.bank_account_name }}</span>
 
                 <div class="payment-box">
                   <div class="pay-row">
@@ -609,7 +610,6 @@ onBeforeUnmount(() => {
                 <!-- TAB 5 -->
                 <div v-else-if="order.order_status === 5" class="action-group">
                   <span class="info-inline info-danger">🚫 Đã hủy</span>
-
                   <div v-if="order.payment_status === 1" class="refund-block">
                     <span class="refund-warning">⚠️ Cần hoàn tiền cho khách</span>
                     <button class="btn-action btn-refund-action" @click="openRefundModal(order.order_code)">
@@ -735,6 +735,7 @@ onBeforeUnmount(() => {
           <button class="btn-cancel-tech" :disabled="isSubmittingRefund" @click="showRefundModal = false">
             Hủy
           </button>
+
           <button class="btn-primary-tech" :disabled="isSubmittingRefund" @click="submitRefundOrder">
             <span v-if="isSubmittingRefund" class="spinner-sm"></span>
             <span>{{ isSubmittingRefund ? 'Đang gửi...' : 'Xác nhận hoàn tất' }}</span>

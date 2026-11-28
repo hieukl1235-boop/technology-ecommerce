@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const orderController = require("../../controllers/admin/orderController");
-const upload = require("../../middleware/upload")
+const upload = require("../../middleware/upload");
 const {
   authenticate,
   authorizePermission,
@@ -22,7 +22,7 @@ router.patch(
   "/:orderCode/assign-shipper",
   authenticate,
   authorizePermission("manage_orders"),
-  orderController.assignShipper
+  orderController.assignShipper,
 );
 
 router.patch(
@@ -31,6 +31,12 @@ router.patch(
   upload.single("refund_image"),
   authorizePermission("manage_orders"),
   orderController.refundOrder,
+);
+router.post(
+  "/remind-user",
+  authenticate,
+  authorizePermission("manage_orders"),
+  orderController.remindUserToCompleteInfo,
 );
 
 router.get("/user", orderController.getUserByOrderCode);

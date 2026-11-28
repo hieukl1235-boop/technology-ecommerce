@@ -1,7 +1,12 @@
 const OrderModel = require("../../models/Order");
 const NotificationModel = require("../../models/Notification");
 const fs = require("fs");
-
+const {
+  remindUser,
+  sendOrderStatusEmail,
+  sendRefundSuccessEmail,
+} = require("../../utils/emailService");
+const User = require("../../models/User");
 const OrderController = {
   async getAllOrders(req, res) {
     try {
@@ -34,7 +39,8 @@ const OrderController = {
           .status(404)
           .json({ success: false, message: "Không tìm thấy đơn hàng!" });
       }
-
+      const user = await User.getUserByOrderCode(orderCode);
+      sendOrderStatusEmail(user.email, orderCode, newStatus);
       return res.status(200).json({
         success: true,
         message: "Cập nhật trạng thái thành công!",
@@ -62,7 +68,8 @@ const OrderController = {
           .json({ success: false, message: "Không tìm thấy đơn hàng!" });
       }
       const user = await OrderModel.getUserByOrderCode(orderCode);
-
+      const UserEmail = await User.getUserByOrderCode(orderCode);
+      sendOrderStatusEmail(UserEmail.email, orderCode, newStatus);
       if (!user) {
         console.error("Không tìm thấy khách hàng của đơn:", orderCode);
         return;
@@ -107,6 +114,8 @@ const OrderController = {
         req.employee.id,
       );
 
+      const user = await User.getUserByOrderCode(orderCode);
+      sendOrderStatusEmail(user.email, orderCode, 4); 
       if (!result) {
         // Xóa ảnh vừa upload vì không dùng nữa
         fs.unlink(req.file.path, () => {});
@@ -116,6 +125,7 @@ const OrderController = {
             "Đơn hàng đã được chuyển cho shipper khác hoặc không còn ở trạng thái đang giao. Vui lòng tải lại danh sách!",
         });
       }
+
 
       return res.status(200).json({
         success: true,
@@ -156,14 +166,14 @@ const OrderController = {
         // Log lỗi thông báo nhưng không làm gián đoạn response trả về cho client
         console.error("Lỗi tạo thông báo hủy đơn:", notifError);
       }
-
+      User.checkBankInfo(user.user_id, user.email);
       return res.status(200).json({
         success: true,
         message:
           "🚫 Hủy đơn hàng, hoàn trả kho và tính lại giá vốn thành công!",
         data: {
           order: result.updatedOrder,
-          needsRefund: result.needsRefund, // Cờ báo hiệu cho frontend/admin biết đơn này có cần hoàn tiền hay không
+          needsRefund: result.needsRefund, 
         },
       });
     } catch (error) {
@@ -284,6 +294,18 @@ const OrderController = {
         console.error("Không tìm thấy khách hàng của đơn:", orderCode);
         return;
       }
+      const UserInfor = await User.getUserByOrderCode(orderCode);
+      const bankInfor = {
+        bank_name: UserInfor.bank_name,
+        bank_account_name: UserInfor.bank_account_name,
+        bank_account_number: UserInfor.bank_account_number,
+      };
+      sendRefundSuccessEmail(
+        UserInfor.email,
+        orderCode,
+        updatedOrder.total_amount,
+        bankInfor,
+      );
       try {
         await NotificationModel.createNotification(
           user.user_id,
@@ -333,6 +355,23 @@ const OrderController = {
       return res.status(500).json({
         success: false,
         message: "Lỗi máy chủ",
+      });
+    }
+  },
+  async remindUserToCompleteInfo(req, res) {
+    const email = req.body.email;
+    try {
+      await remindUser(email);
+      return res.status(200).json({
+        success: true,
+        message:
+          "Đã gửi email nhắc nhở khách hàng hoàn thành thông tin nhận tiền.",
+      });
+    } catch (error) {
+      console.error("Lỗi khi gửi email nhắc nhở:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi server khi gửi email nhắc nhở.",
       });
     }
   },

@@ -25,8 +25,23 @@ const getProfile = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { full_name,date_of_birth, gender } = req.body;
-    const updatedUser = await User.updateUserProfile(userId, full_name, date_of_birth, gender);
+    const {
+      full_name,
+      date_of_birth,
+      gender,
+      bank_name,
+      bank_account_number,
+      bank_account_name,
+    } = req.body;
+    const updatedUser = await User.updateUserProfile(
+      userId,
+      full_name,
+      date_of_birth,
+      gender,
+      bank_name,
+      bank_account_number,
+      bank_account_name,
+    ); ;
     res.status(200).json({
       message: "Cập nhật thông tin người dùng thành công",
       user: updatedUser,

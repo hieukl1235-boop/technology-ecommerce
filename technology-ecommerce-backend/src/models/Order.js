@@ -15,14 +15,16 @@ const OrderModel = {
             'unit_price', od.unit_price,
             'image', pv.image_url
           )
-        ) AS items
+        ) AS items,
+        u.bank_name,u.bank_account_number,u.bank_account_name,u.email
       FROM orders o
       LEFT JOIN delivery_proofs dp ON o.delivery_proof_id = dp.id -- 🟢 JOIN sang bảng delivery_proofs
       LEFT JOIN order_details od ON o.order_code = od.order_code
       LEFT JOIN product_variants pv ON od.variant_id = pv.id
       LEFT JOIN products p ON pv.product_id = p.id
-      LEFT JOIN employees e ON o.employee_id = e.id -- 🟢 JOIN sang bảng employees để lấy thông tin shipper
-      GROUP BY o.order_code, dp.image_url,e.full_name,e.avatar -- 🟢 Gom nhóm thêm cột dp.image_url
+      LEFT JOIN employees e ON o.employee_id = e.id
+      LEFT JOIN users u ON o.user_id = u.id -- 🟢 JOIN sang bảng employees để lấy thông tin shipper
+      GROUP BY o.order_code, dp.image_url,e.full_name,e.avatar,  u.bank_name,u.bank_account_number,u.bank_account_name,u.email -- 🟢 Gom nhóm thêm cột dp.image_url
       ORDER BY o.order_date DESC;
     `;
     const result = await pool.query(query);
@@ -30,8 +32,9 @@ const OrderModel = {
   },
   async getUserByOrderCode(orderCode) {
     const result = await pool.query(
-      `SELECT o.user_id
+      `SELECT o.user_id,u.email,u.bank_name,u.bank_account_number,u.bank_account_name
      FROM orders o
+     JOIN users u ON o.user_id = u.id
      WHERE o.order_code = $1`,
       [orderCode],
     );
@@ -335,7 +338,7 @@ const OrderModel = {
   async refundOrder(orderCode, refundImageFilename) {
     const query = `
       UPDATE orders 
-      SET payment_status = 2, -- Giả sử 2 là trạng thái "Đã hoàn tiền"
+      SET payment_status = 2, 
           refund_image_url = $1
       WHERE order_code = $2 
       RETURNING *
@@ -375,7 +378,7 @@ const OrderModel = {
       GROUP BY o.order_code, dp.image_url;
     `;
     const { rows } = await pool.query(query, [orderCode, userId]);
-    return rows[0]; 
+    return rows[0];
   },
   async getVariantByOrder(orderCode) {
     const query = `
@@ -393,6 +396,7 @@ const OrderModel = {
     const result = await pool.query(query, [orderCode]);
     return result.rows;
   },
+  
 };
 
 module.exports = OrderModel;

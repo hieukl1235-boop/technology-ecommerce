@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const { remindUser } = require("../utils/emailService");
 
 class User {
   // Tìm user bằng email
@@ -192,13 +193,29 @@ class User {
     return result.rows[0];
   }
 
-  static async updateUserProfile(userId, full_name, date_of_birth, gender) {
+  static async updateUserProfile(
+    userId,
+    full_name,
+    date_of_birth,
+    gender,
+    bank_name,
+    bank_account_number,
+    bank_account_name,
+  ) {
     const result = await pool.query(
       `UPDATE users
-        SET full_name = $1, date_of_birth = $2, gender = $3
-        WHERE id = $4
+        SET full_name = $1, date_of_birth = $2, gender = $3, bank_name = $4, bank_account_number = $5, bank_account_name = $6
+        WHERE id = $7
         RETURNING *`,
-      [full_name, date_of_birth, gender, userId],
+      [
+        full_name,
+        date_of_birth,
+        gender,
+        bank_name,
+        bank_account_number,
+        bank_account_name,
+        userId,
+      ],
     );
     return result.rows[0];
   }
@@ -295,6 +312,39 @@ class User {
 
     const result = await pool.query(query, [avatarFile, userId]);
 
+    return result.rows[0];
+  }
+
+  static async checkBankInfo(userId, userEmail, orderCode) {
+    const query = `
+      SELECT bank_name, bank_account_number, bank_account_name
+      FROM users
+      WHERE id = $1
+    `;
+    const result = await pool.query(query, [userId]);
+    const bankInfo = result.rows[0];
+
+    const queryOrder = `SELECT payment_status FROM orders WHERE order_code = $1`;
+    const orderResult = await pool.query(queryOrder, [orderCode]);
+    const orderStatus = orderResult.rows[0];
+
+    // Kiểm tra xem user tồn tại và đã điền đủ 3 trường chưa
+    const isBankInfoComplete =
+      bankInfo &&
+      bankInfo.bank_name &&
+      bankInfo.bank_account_number &&
+      bankInfo.bank_account_name;
+
+    if (!isBankInfoComplete && orderStatus ==1) {
+      await remindUser(userEmail);
+      return false;
+    }
+    return true; 
+  }
+
+  static async getUserByOrderCode(orderCode) {
+    const query = `SELECT U.* FROM users U JOIN orders O ON U.id = O.user_id WHERE O.order_code = $1`;
+    const result = await pool.query(query, [orderCode]);
     return result.rows[0];
   }
 }

@@ -25,7 +25,18 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 app.json.ensure_ascii = False
 CORS(app, origins=["http://localhost:5173"])
+import joblib
+import re
+from underthesea import word_tokenize
+tfidf_vectorizer = joblib.load(
+    r"D:\LuanVan\Python\tfidf_vectorizer.pkl"
+)
 
+sentiment_model = joblib.load(
+    r"D:\LuanVan\Python\sentiment_model.pkl"
+)
+
+print("Đã nạp mô hình phân loại cảm xúc.")
 # Nạp dữ liệu và tạo hai mô hình một lần khi Flask khởi động
 try:
     print("Các trạng thái đơn hàng/thanh toán:")
@@ -291,7 +302,63 @@ def handle_image_too_large(error):
         "success": False,
         "message": "Dung lượng ảnh không được vượt quá 10 MB."
     }), 413
+# =========================
+# API PHÂN LOẠI CẢM XÚC BÌNH LUẬN
+# =========================
 
+def preprocess_sentiment_text(text):
+    text = str(text).lower()
+    text = re.sub(r"[^\w\s]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    text = word_tokenize(text, format="text")
+    return text
+
+
+@app.post("/api/predict-sentiment")
+def predict_sentiment():
+    data = request.get_json(silent=True) or {}
+
+    comment = data.get("comment", "")
+
+    if not isinstance(comment, str) or not comment.strip():
+        return jsonify({
+            "success": False,
+            "message": "Vui lòng nhập nội dung bình luận."
+        }), 400
+
+    try:
+        # 1. Tiền xử lý bình luận
+        processed_text = preprocess_sentiment_text(comment)
+
+        # 2. Chuyển bình luận thành vector TF-IDF
+        vector = tfidf_vectorizer.transform([processed_text])
+
+        # 3. Dự đoán cảm xúc
+        prediction = sentiment_model.predict(vector)[0]
+
+        # 4. Tính xác suất dự đoán
+        probabilities = sentiment_model.predict_proba(vector)[0]
+
+        return jsonify({
+            "success": True,
+            "comment": comment,
+            "sentiment": prediction,
+            "probabilities": {
+                label: round(float(probability), 4)
+                for label, probability in zip(
+                    sentiment_model.classes_,
+                    probabilities
+                )
+            }
+        }), 200
+
+    except Exception:
+        app.logger.exception("Lỗi phân loại cảm xúc")
+
+        return jsonify({
+            "success": False,
+            "message": "Không thể phân loại bình luận."
+        }), 500
 
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=False)
